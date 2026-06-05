@@ -2813,6 +2813,16 @@ STRANI_FN.navodila = function(el, vrhDesno){
     '<p style="margin-bottom:0"><b>Upravljavec podatkov ste vi.</b> Kot najemodajalec ste odgovorni za pravilno ravnanje z osebnimi podatki najemnikov skladno z GDPR (npr. da jih hranite varno in le toliko časa, kolikor je potrebno).</p>'+
     '</div></div></div>';
 
+  // stik
+  html+='<div class="naslov-razdelka">✉️ Stik, predlogi in sporočila</div>';
+  html+='<div class="kartica mb16"><div class="kartica-telo">'+
+    '<div class="vrsta zavoj" style="gap:16px;align-items:center;justify-content:space-between">'+
+    '<div style="flex:1;min-width:240px"><p style="font-size:13.5px;line-height:1.7;margin:0">Imate predlog, vprašanje ali ste našli napako? Vesel bom vašega sporočila — vaše povratne informacije pomagajo program izboljšati.</p></div>'+
+    '<a class="gumb gumb-primarni" href="mailto:bostjancebron76@gmail.com?subject='+encodeURIComponent('Upravljalec nepremičnin – predlog/sporočilo')+'" style="text-decoration:none">✉️ Pošlji e-pošto</a>'+
+    '</div>'+
+    '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--siva-100);font-size:13px"><span class="txt-mute">E-naslov:</span> <a href="mailto:bostjancebron76@gmail.com">bostjancebron76@gmail.com</a></div>'+
+    '</div></div>';
+
   // donacija
   html+='<div class="naslov-razdelka">❤️ Podprite razvoj</div>';
   html+=donacijskiBlok();

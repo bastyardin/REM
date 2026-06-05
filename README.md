@@ -153,6 +153,16 @@ Ta program je pripomoček za lažje vodenje evidence nepremičnin v najemu in je
 
 ---
 
+## ✉️ Stik in predlogi
+
+Imate predlog, vprašanje ali ste našli napako? Vesel bom vašega sporočila:
+
+**[bostjancebron76@gmail.com](mailto:bostjancebron76@gmail.com)**
+
+Vaše povratne informacije pomagajo program izboljšati. 🙏
+
+---
+
 ## 📄 Licenca
 
 Brezplačno za osebno uporabo.
