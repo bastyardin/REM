@@ -134,19 +134,6 @@ Izračuni so informativne narave in v pomoč pri pregledu. Za uradno napoved se 
 
 ---
 
-## 🛠️ Za razvijalce
-
-Program je ena sama HTML datoteka (`index.html`), gostovana na **GitHub Pages**. Deluje na kateremkoli statičnem strežniku brez dodatnih odvisnosti.
-
-**Vklop Umami statistike (neobvezno):**
-1. V [Umami](https://umami.is) dodajte svojo spletno stran (`bastyardin.github.io`).
-2. Umami vam da *Website ID* in URL skripte.
-3. V `index.html` poiščite blok `<!-- UMAMI ANALYTICS -->` v `<head>` in odkomentirajte vrstico `<script>`, kjer vstavite svoj Website ID in URL.
-
-Analitika beleži le anonimne obiske strani (brez piškotkov in osebnih podatkov).
-
----
-
 ## ⚖️ Pravno obvestilo
 
 Ta program je pripomoček za lažje vodenje evidence nepremičnin v najemu in je informativne narave. Davčni izračuni temeljijo na splošno dostopnih informacijah o slovenski zakonodaji in **ne nadomeščajo strokovnega davčnega ali pravnega svetovanja**. Avtor ne prevzema odgovornosti za morebitne napake ali odločitve, sprejete na podlagi programa. Za uradne davčne napovedi vedno preverite veljavno zakonodajo in se po potrebi posvetujte z računovodjo.
