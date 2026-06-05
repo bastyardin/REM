@@ -2,7 +2,9 @@
 
 **Brezplačen program za upravljanje nepremičnin v najemu, prilagojen slovenski zakonodaji.**
 
-Ena sama HTML datoteka, ki jo odprete v brskalniku — brez namestitve, brez interneta, brez naročnine. Vsi podatki ostanejo na vašem računalniku.
+### 👉 [**Odpri aplikacijo →**](https://bastyardin.github.io/REM/)
+
+Spletna aplikacija — odprete jo v brskalniku, brez namestitve in brez naročnine. Vsi vaši podatki ostanejo shranjeni lokalno na vaši napravi in se nikoli ne pošiljajo na splet.
 
 ---
 
@@ -77,11 +79,13 @@ Kratkoročni (turistični) najem se obravnava kot **dohodek iz dejavnosti** (sob
 
 ## 🚀 Kako začeti
 
-1. Prenesite datoteko `Upravljalec-nepremicnin.html`
-2. **Dvokliknite** nanjo — odpre se v vašem privzetem brskalniku
-3. Začnite z dodajanjem prve nepremičnine
+### 👉 [Odprite aplikacijo](https://bastyardin.github.io/REM/)
 
-To je vse. Ni namestitve, ni registracije, ni interneta.
+**[https://bastyardin.github.io/REM/](https://bastyardin.github.io/REM/)**
+
+Kliknite povezavo in program se odpre takoj v vašem brskalniku — ni namestitve, ni registracije. Nato samo dodate svojo prvo nepremičnino in začnete.
+
+> 💡 **Nasvet:** Stran si shranite med zaznamke za hiter dostop. Vaši podatki ostanejo shranjeni v brskalniku, tako da jih ob ponovnem obisku najdete tam, kjer ste končali.
 
 > **Najboljši brskalniki:** Chrome ali Edge (omogočata samodejno shranjevanje v datoteko). Deluje pa tudi v Firefox, Safari in drugih.
 
@@ -114,10 +118,10 @@ Spletna različica lahko uporablja **[Umami](https://umami.is)** — odprtokodno
 ## ❓ Pogosta vprašanja
 
 **Ali potrebujem internet?**
-Ne. Program deluje povsem brez povezave.
+Le za prvo odprtje strani. Ko se aplikacija naloži, vse delo (vnos, izračuni, shranjevanje) poteka v vašem brskalniku — vaši podatki se ne pošiljajo na splet.
 
 **Ali so moji podatki varni?**
-Da. Ostajajo izključno na vašem računalniku. Program nima strežnika.
+Da. Ostajajo izključno na vaši napravi (v brskalniku). Program nima strežnika in ne zbira osebnih podatkov.
 
 **Ali lahko program uporabljam na več napravah?**
 Da — shranite datoteko za samodejno shranjevanje v oblačno mapo (OneDrive, Dropbox), ali ročno prenesite varnostno kopijo in jo uvozite na drugi napravi.
@@ -130,16 +134,16 @@ Izračuni so informativne narave in v pomoč pri pregledu. Za uradno napoved se 
 
 ---
 
-## 🛠️ Za razvijalce (objava na splet)
+## 🛠️ Za razvijalce
 
-Program je ena sama HTML datoteka — lahko ga objavite na **GitHub Pages**, Netlify ali katerikoli statični strežnik.
+Program je ena sama HTML datoteka (`index.html`), gostovana na **GitHub Pages**. Deluje na kateremkoli statičnem strežniku brez dodatnih odvisnosti.
 
 **Vklop Umami statistike (neobvezno):**
-1. V [Umami](https://umami.is) dodajte svojo spletno stran (npr. vašo GitHub Pages domeno).
+1. V [Umami](https://umami.is) dodajte svojo spletno stran (`bastyardin.github.io`).
 2. Umami vam da *Website ID* in URL skripte.
-3. V `Upravljalec-nepremicnin.html` poiščite blok `<!-- UMAMI ANALYTICS -->` v `<head>` in odkomentirajte vrstico `<script>`, kjer vstavite svoj Website ID in URL.
+3. V `index.html` poiščite blok `<!-- UMAMI ANALYTICS -->` v `<head>` in odkomentirajte vrstico `<script>`, kjer vstavite svoj Website ID in URL.
 
-Analitika deluje samo na spletu (ne pri lokalni rabi datoteke) in beleži le anonimne obiske.
+Analitika beleži le anonimne obiske strani (brez piškotkov in osebnih podatkov).
 
 ---
 
