@@ -35,6 +35,12 @@ Samodejni izračun davka po slovenski zakonodaji z **dvema davčnima režimoma**
 ### 🛏️ Kratkoročni najem (Airbnb / Booking)
 Ločen modul za turistično oddajanje: vodenje rezervacij, samodejni izračun turistične takse, **koledarski pregled** zasedenosti in opozorilo ob približevanju 150-dnevni meji za registrirane sobodajalce.
 
+Modul ponuja tudi:
+
+- **📊 Statistika oddajanja** — ključni kazalniki kot v profesionalnih orodjih: **ADR** (povprečna cena na noč), **RevPAR** (prihodek na razpoložljivo noč) in **zasedenost** po mesecih (barvni graf). Vključuje **prihodek po kanalih** (Airbnb / Booking / neposredno) z odštetimi provizijami in prikazom neto zneska ter **statistiko gostov** (povprečna dolžina bivanja, število oseb). Vse lahko **izvozite v CSV** (Excel).
+- **💰 Sezonski cenik** — določite različne cene na noč po obdobjih (visoka sezona, vikendi, prazniki). Pri vnosu nove rezervacije vam program **samodejno predlaga ceno** glede na cenik.
+- **Nastavljive provizije** — za vsako nepremičnino posebej določite odstotek provizije Airbnb in Booking (privzeto 15 %), ki se upošteva pri izračunu neto prihodka.
+
 ### 📁 Pogodbe in dokumenti
 Evidenca dokumentov (pogodbe, popisni listi, zavarovanja, položnice) z opozorili za poteke. Vključuje **generator osnovne najemne pogodbe** za tisk.
 

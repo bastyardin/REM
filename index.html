@@ -400,7 +400,8 @@ const privzetiPodatki = {
   dokumenti: [],     // metapodatki o dokumentih
   rezervacije: [],   // kratkoročni najem (Airbnb/Booking)
   varscine: [],      // evidenca varščin (prejeto/vrnjeno)
-  stevci: []         // popis števcev (voda/elektrika/plin) ob vselitvi/izselitvi
+  stevci: [],        // popis števcev (voda/elektrika/plin) ob vselitvi/izselitvi
+  ceniki: []         // sezonske cene na noč po obdobjih (kratkoročni najem)
 };
 
 let P = nalozi();   // globalni podatki
@@ -1240,7 +1241,13 @@ function oknoNepremicnina(idn){
       '<div class="polje"><label>Mesečni prispevek v rezervni sklad (€)</label><input id="np_rezervni" type="number" min="0" step="1" value="'+(n.rezervni||'')+'"></div>'+
       '<div class="polje"><label>Letni strošek upravnika (€)</label><input id="np_upravnik" type="number" min="0" step="1" value="'+(n.upravnik||'')+'"></div>'+
     '</div>'+
-    '<div class="polje"><label>Opombe</label><textarea id="np_opombe" placeholder="Karkoli vrednega zapomniti...">'+escHTML(n.opombe||'')+'</textarea></div>';
+    '<div class="naslov-razdelka mt8">🛏️ Provizije platform za turistično oddajanje</div>'+
+    '<div class="polje-vrsta">'+
+      '<div class="polje"><label>Provizija Airbnb (%)</label><input id="np_provAirbnb" type="number" min="0" max="100" step="0.5" value="'+(n.provAirbnb!=null?n.provAirbnb:15)+'"></div>'+
+      '<div class="polje"><label>Provizija Booking (%)</label><input id="np_provBooking" type="number" min="0" max="100" step="0.5" value="'+(n.provBooking!=null?n.provBooking:15)+'"></div>'+
+    '</div>'+
+    '<div class="namig" style="margin-top:-6px">💡 Uporablja se v statistiki za izračun neto prihodka. Neposredne rezervacije so vedno brez provizije. Privzeto 15 %.</div>'+
+    '<div class="polje mt8"><label>Opombe</label><textarea id="np_opombe" placeholder="Karkoli vrednega zapomniti...">'+escHTML(n.opombe||'')+'</textarea></div>';
 
   const noga =
     (ur?'<button class="gumb gumb-nevarno" style="margin-right:auto" onclick="izbrisiNepremicnino(\''+idn+'\')">🗑 Izbriši</button>':'')+
@@ -1294,6 +1301,8 @@ function shraniNepremicnino(idn){
     nabavna: parseFloat(document.getElementById('np_nabavna').value)||0,
     rezervni: parseFloat(document.getElementById('np_rezervni').value)||0,
     upravnik: parseFloat(document.getElementById('np_upravnik').value)||0,
+    provAirbnb: parseFloat(document.getElementById('np_provAirbnb').value)||0,
+    provBooking: parseFloat(document.getElementById('np_provBooking').value)||0,
     opombe: document.getElementById('np_opombe').value.trim()
   };
   if(idn){
@@ -2369,7 +2378,7 @@ STRANI_FN.kratkorocni = function(el, vrhDesno){
   for(let l=new Date().getFullYear()-1; l<=new Date().getFullYear(); l++){
     html+='<button class="'+(l===leto?'aktiven':'')+'" onclick="stanjeStrani.leto='+l+';izrisiStran()">'+l+'</button>';
   }
-  html+='</div><div class="segment"><button class="'+(pogled==='seznam'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'seznam\';izrisiStran()">📋 Seznam</button><button class="'+(pogled==='koledar'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'koledar\';izrisiStran()">📅 Koledar</button></div></div>';
+  html+='</div><div class="segment"><button class="'+(pogled==='seznam'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'seznam\';izrisiStran()">📋 Seznam</button><button class="'+(pogled==='koledar'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'koledar\';izrisiStran()">📅 Koledar</button><button class="'+(pogled==='statistika'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'statistika\';izrisiStran()">📊 Statistika</button><button class="'+(pogled==='ceniki'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'ceniki\';izrisiStran()">💰 Cenik</button></div></div>';
 
   html+='<div class="stati">';
   html+=statKartica('Prihodek '+leto, evro0(prihodek), 'modra', '💶', rez.length+' rezervacij');
@@ -2388,6 +2397,10 @@ STRANI_FN.kratkorocni = function(el, vrhDesno){
 
   if(pogled==='koledar'){
     html+=koledarRezervacij(leto);
+  }else if(pogled==='statistika'){
+    html+=statistikaOddajanja(leto);
+  }else if(pogled==='ceniki'){
+    html+=cenikiPogled();
   }else{
     // tabela rezervacij
     html+='<div class="kartica"><div class="kartica-glava"><h2>Rezervacije '+leto+'</h2></div>';
@@ -2470,6 +2483,348 @@ function premakniMesec(smer, leto){
   izrisiStran();
 }
 
+/* vrne % provizije za rezervacijo glede na vir in nastavitve nepremičnine */
+function provizijaZaRezervacijo(r){
+  const np = najdiNepremicnino(r.nepremicninaId);
+  if(r.vir==='airbnb')  return np && np.provAirbnb!=null  ? Number(np.provAirbnb)  : 15;
+  if(r.vir==='booking') return np && np.provBooking!=null ? Number(np.provBooking) : 15;
+  return 0; // neposredno / drugo = brez provizije
+}
+
+/* ============================================================
+   STATISTIKA ODDAJANJA  (ADR, RevPAR, zasedenost, kanali, gostje)
+   ============================================================ */
+function statistikaOddajanja(leto){
+  const kratke = P.nepremicnine.filter(np=>np.tipNajema==='kratkorocni');
+  const rez = P.rezervacije.filter(r=>new Date(r.prihod).getFullYear()===leto);
+
+  if(rez.length===0){
+    return '<div class="kartica"><div class="kartica-telo"><div class="prazno" style="padding:32px"><div class="ik">📊</div><h3>Ni podatkov za '+leto+'</h3><p>Statistika se prikaže, ko boste imeli vsaj eno rezervacijo v tem letu.</p></div></div></div>';
+  }
+
+  // --- osnovni seštevki ---
+  const prihodek = rez.reduce((s,r)=>s+(Number(r.znesek)||0),0);
+  const nocitve  = rez.reduce((s,r)=>s+(Number(r.nocitve)||0),0);
+  const stRezerv = rez.length;
+  const osebeSkupaj = rez.reduce((s,r)=>s+((Number(r.osebe)||0)*(Number(r.nocitve)||0)),0); // oseb-nočitve
+
+  // --- razpoložljivi dnevi (za zasedenost in RevPAR) ---
+  // če je leto preteklo = cele 365/366; če tekoče = do danes; upoštevamo št. turističnih nepremičnin
+  const danes = new Date();
+  const jePrestopno = (leto%4===0 && leto%100!==0) || leto%400===0;
+  const dniVLetu = jePrestopno ? 366 : 365;
+  let dniDoslej;
+  if(leto < danes.getFullYear()) dniDoslej = dniVLetu;
+  else if(leto > danes.getFullYear()) dniDoslej = dniVLetu;
+  else { const zac=new Date(leto,0,1); dniDoslej = Math.floor((danes-zac)/(1000*60*60*24))+1; }
+  const stEnot = Math.max(1, kratke.length);
+  const razpolozljivi = dniDoslej * stEnot;
+
+  // --- ključni metriki ---
+  const ADR    = nocitve>0 ? prihodek/nocitve : 0;            // povprečna cena na noč
+  const RevPAR = razpolozljivi>0 ? prihodek/razpolozljivi : 0; // prihodek na razpoložljivo noč
+  const zasedenost = razpolozljivi>0 ? (nocitve/razpolozljivi*100) : 0;
+  const povBivanje = stRezerv>0 ? nocitve/stRezerv : 0;       // povprečna dolžina bivanja
+  const povOsebe = nocitve>0 ? osebeSkupaj/nocitve : 0;       // povprečno št. oseb
+
+  let html='';
+
+  // gumb za izvoz
+  html+='<div class="vrsta med mb16"><div class="napis" style="font-size:15px">Statistika oddajanja '+leto+'</div><button class="gumb gumb-sekundarni" onclick="izvoziStatistikoCSV('+leto+')">📥 Izvozi CSV</button></div>';
+
+  // ---------- KLJUČNI METRIKI ----------
+  html+='<div class="stati">';
+  html+=statKartica('ADR – povpr. cena/noč', evro(ADR), 'modra', '💶', 'kar gosti plačajo na noč');
+  html+=statKartica('RevPAR', evro(RevPAR), 'vijola', '📈', 'prihodek na razpoložljivo noč');
+  html+=statKartica('Zasedenost', zasedenost.toFixed(1)+' %', zasedenost>=60?'zelena':zasedenost>=35?'oranzna':'rdeca', '🗓️', nocitve+' / '+razpolozljivi+' noči');
+  html+=statKartica('Povpr. bivanje', povBivanje.toFixed(1)+' noči', 'oranzna', '🌙', 'na rezervacijo');
+  html+='</div>';
+
+  html+='<div class="opozorilo opo-modra"><span class="ik">ℹ️</span><div><b>Kaj pomenijo?</b> <b>ADR</b> = povprečna cena na zasedeno noč. <b>RevPAR</b> = prihodek na vsako <i>razpoložljivo</i> noč (upošteva tudi prazne dni in '+stEnot+' '+(stEnot===1?'enoto':'enot')+'). <b>Zasedenost</b> = delež zasedenih noči '+(leto===danes.getFullYear()?'(do danes)':'(celo leto)')+'. Višji RevPAR pomeni boljši skupni izkoristek.</div></div>';
+
+  // ---------- ZASEDENOST PO MESECIH (stolpci) ----------
+  const meseci = Array.from({length:12},()=>({noci:0, prihodek:0, dniRazpolozljivi:0}));
+  // izračun zasedenih noči po mesecih (razdelimo nočitve po dejanskih datumih)
+  rez.forEach(r=>{
+    const p=new Date(r.prihod), o=new Date(r.odhod);
+    let cur=new Date(p);
+    const cenaNaNoc = (Number(r.nocitve)>0) ? (Number(r.znesek)||0)/Number(r.nocitve) : 0;
+    while(cur < o){
+      if(cur.getFullYear()===leto){ const mi=cur.getMonth(); meseci[mi].noci++; meseci[mi].prihodek+=cenaNaNoc; }
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+  // razpoložljivi dnevi na mesec
+  for(let mi=0; mi<12; mi++){
+    const dniVM = new Date(leto, mi+1, 0).getDate();
+    let dniVeljavni = dniVM;
+    if(leto===danes.getFullYear() && mi>danes.getMonth()) dniVeljavni=0;
+    else if(leto===danes.getFullYear() && mi===danes.getMonth()) dniVeljavni=danes.getDate();
+    meseci[mi].dniRazpolozljivi = dniVeljavni * stEnot;
+  }
+  const maxNoci = Math.max(1, ...meseci.map(m=>m.noci));
+  const kraticeMes = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Avg','Sep','Okt','Nov','Dec'];
+
+  html+='<div class="kartica mb16"><div class="kartica-glava"><h2>📊 Zasedenost in prihodek po mesecih</h2></div><div class="kartica-telo">';
+  html+='<div style="display:flex;align-items:flex-end;gap:6px;height:180px;padding:8px 0 0">';
+  meseci.forEach((m,mi)=>{
+    const vis = Math.round(m.noci/maxNoci*150);
+    const zas = m.dniRazpolozljivi>0 ? Math.round(m.noci/m.dniRazpolozljivi*100) : 0;
+    const barva = zas>=60?'#34d399':zas>=35?'#fbbf24':zas>0?'#f87171':'#e2e8f0';
+    html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">'+
+      '<div class="txt-mini txt-mute" style="font-size:9px;line-height:1">'+(m.noci>0?m.noci:'')+'</div>'+
+      '<div title="'+kraticeMes[mi]+': '+m.noci+' noči, '+zas+'% zasedenost, '+evro0(m.prihodek)+'" style="width:100%;max-width:34px;height:'+Math.max(2,vis)+'px;background:'+barva+';border-radius:4px 4px 0 0;transition:height .3s"></div>'+
+      '<div class="txt-mini txt-mute" style="font-size:10px">'+kraticeMes[mi]+'</div>'+
+      '<div class="txt-mini" style="font-size:9px;color:'+(zas>0?barva:'#cbd5e1')+';font-weight:600">'+(zas>0?zas+'%':'')+'</div>'+
+      '</div>';
+  });
+  html+='</div>';
+  html+='<div class="vrsta" style="gap:16px;margin-top:10px;flex-wrap:wrap" class="txt-mini">'+
+    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#34d399"></span>≥60% dobra</span>'+
+    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#fbbf24"></span>35–59% srednja</span>'+
+    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#f87171"></span>&lt;35% nizka</span>'+
+    '<span class="txt-mini txt-mute" style="margin-left:auto">Številka nad stolpcem = št. zasedenih noči</span></div>';
+  html+='</div></div>';
+
+  // ---------- PRIHODEK PO KANALIH ----------
+  // provizija se računa po posamezni rezervaciji (glede na nastavitev njene nepremičnine)
+  const kanali = {};
+  rez.forEach(r=>{
+    const v = r.vir||'drugo';
+    if(!kanali[v]) kanali[v]={prihodek:0, nocitve:0, st:0, provizija:0};
+    const znesek = Number(r.znesek)||0;
+    kanali[v].prihodek += znesek;
+    kanali[v].nocitve  += Number(r.nocitve)||0;
+    kanali[v].st++;
+    kanali[v].provizija += znesek * provizijaZaRezervacijo(r) / 100;
+  });
+  const virImena = {airbnb:'Airbnb', booking:'Booking.com', direkt:'Neposredno', drugo:'Drugo'};
+  const virBarve = {airbnb:'#f87171', booking:'#60a5fa', direkt:'#34d399', drugo:'#a78bfa'};
+
+  html+='<div class="kartica mb16"><div class="kartica-glava"><h2>💶 Prihodek po kanalih</h2></div><div class="kartica-telo">';
+  // vrstica deležev (vodoravni trak)
+  html+='<div style="display:flex;height:26px;border-radius:6px;overflow:hidden;margin-bottom:14px">';
+  Object.entries(kanali).forEach(([v,d])=>{
+    const del = prihodek>0 ? d.prihodek/prihodek*100 : 0;
+    if(del>0) html+='<div title="'+(virImena[v]||v)+': '+del.toFixed(0)+'%" style="width:'+del+'%;background:'+(virBarve[v]||'#cbd5e1')+';display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">'+(del>=8?del.toFixed(0)+'%':'')+'</div>';
+  });
+  html+='</div>';
+  html+='<div class="tabela-ovoj"><table><thead><tr><th>Kanal</th><th class="t-sredina">Rezervacij</th><th class="t-desno">Prihodek</th><th class="t-desno">Delež</th><th class="t-desno">Provizija</th><th class="t-desno">Neto</th></tr></thead><tbody>';
+  let skupajProvizija=0;
+  Object.entries(kanali).sort((a,b)=>b[1].prihodek-a[1].prihodek).forEach(([v,d])=>{
+    const del = prihodek>0 ? d.prihodek/prihodek*100 : 0;
+    const prov = d.provizija;
+    const efektProc = d.prihodek>0 ? prov/d.prihodek*100 : 0;
+    skupajProvizija += prov;
+    html+='<tr><td class="celica-glavna"><span class="vrsta" style="gap:7px"><span style="width:11px;height:11px;border-radius:3px;background:'+(virBarve[v]||"#cbd5e1")+'"></span>'+(virImena[v]||v)+'</span></td>'+
+      '<td class="t-sredina">'+d.st+'</td>'+
+      '<td class="t-desno celica-glavna zelen">'+evro(d.prihodek)+'</td>'+
+      '<td class="t-desno">'+del.toFixed(0)+'%</td>'+
+      '<td class="t-desno '+(prov>0?'oranzn':'txt-mute')+'">'+(prov>0?'−'+evro(prov)+' ('+efektProc.toFixed(1)+'%)':'—')+'</td>'+
+      '<td class="t-desno celica-glavna">'+evro(d.prihodek-prov)+'</td></tr>';
+  });
+  html+='</tbody><tfoot><tr style="border-top:2px solid var(--siva-200);font-weight:700">'+
+    '<td>Skupaj</td><td class="t-sredina">'+stRezerv+'</td><td class="t-desno zelen">'+evro(prihodek)+'</td><td class="t-desno">100%</td>'+
+    '<td class="t-desno oranzn">−'+evro(skupajProvizija)+'</td><td class="t-desno">'+evro(prihodek-skupajProvizija)+'</td></tr></tfoot></table></div>';
+  html+='<div class="namig" style="margin-top:10px">💡 Provizije se računajo po <b>nastavitvah vsake nepremičnine</b> (uredite jih pri nepremičnini). Neposredne rezervacije so brez provizije, zato so najbolj donosne.</div>';
+  html+='</div></div>';
+
+  // ---------- STATISTIKA GOSTOV ----------
+  html+='<div class="kartica"><div class="kartica-glava"><h2>👥 Gostje</h2></div><div class="kartica-telo">';
+  html+='<div class="stati" style="margin-bottom:0">';
+  html+=statKartica('Skupaj rezervacij', stRezerv, 'modra', '🧳', 'v letu '+leto);
+  html+=statKartica('Povpr. dolžina', povBivanje.toFixed(1)+' noči', 'vijola', '🌙', 'na bivanje');
+  html+=statKartica('Povpr. št. oseb', povOsebe.toFixed(1), 'zelena', '👤', 'na zasedeno noč');
+  html+=statKartica('Povpr. vrednost', evro0(stRezerv>0?prihodek/stRezerv:0), 'oranzna', '💰', 'na rezervacijo');
+  html+='</div></div></div>';
+
+  return html;
+}
+
+/* izvoz statistike oddajanja v CSV (Excel, slovensko ločilo ;) */
+function izvoziStatistikoCSV(leto){
+  const kratke = P.nepremicnine.filter(np=>np.tipNajema==='kratkorocni');
+  const rez = P.rezervacije.filter(r=>new Date(r.prihod).getFullYear()===leto);
+  if(rez.length===0){ obvestilo('Ni podatkov za izvoz','napaka'); return; }
+
+  // ponovni izračun ključnih vrednosti (enako kot v statistikaOddajanja)
+  const prihodek = rez.reduce((s,r)=>s+(Number(r.znesek)||0),0);
+  const nocitve  = rez.reduce((s,r)=>s+(Number(r.nocitve)||0),0);
+  const stRezerv = rez.length;
+  const osebeSkupaj = rez.reduce((s,r)=>s+((Number(r.osebe)||0)*(Number(r.nocitve)||0)),0);
+  const danes = new Date();
+  const jePrestopno = (leto%4===0 && leto%100!==0) || leto%400===0;
+  const dniVLetu = jePrestopno ? 366 : 365;
+  let dniDoslej;
+  if(leto!==danes.getFullYear()) dniDoslej=dniVLetu;
+  else { const zac=new Date(leto,0,1); dniDoslej=Math.floor((danes-zac)/(1000*60*60*24))+1; }
+  const stEnot = Math.max(1, kratke.length);
+  const razpolozljivi = dniDoslej*stEnot;
+  const ADR = nocitve>0 ? prihodek/nocitve : 0;
+  const RevPAR = razpolozljivi>0 ? prihodek/razpolozljivi : 0;
+  const zasedenost = razpolozljivi>0 ? nocitve/razpolozljivi*100 : 0;
+  const povBivanje = stRezerv>0 ? nocitve/stRezerv : 0;
+  const povOsebe = nocitve>0 ? osebeSkupaj/nocitve : 0;
+
+  const E = n => (Number(n)||0).toFixed(2).replace('.',',');  // slovensko: decimalna vejica
+  let v=[];
+  v.push(['Statistika oddajanja',leto]);
+  v.push([]);
+  v.push(['KLJUCNI METRIKI']);
+  v.push(['Prihodek skupaj (EUR)', E(prihodek)]);
+  v.push(['Stevilo rezervacij', stRezerv]);
+  v.push(['Nocitve skupaj', nocitve]);
+  v.push(['ADR - povprecna cena na noc (EUR)', E(ADR)]);
+  v.push(['RevPAR - prihodek na razpolozljivo noc (EUR)', E(RevPAR)]);
+  v.push(['Zasedenost (%)', E(zasedenost)]);
+  v.push(['Povprecna dolzina bivanja (noci)', E(povBivanje)]);
+  v.push(['Povprecno st. oseb na noc', E(povOsebe)]);
+  v.push(['Razpolozljivih noci', razpolozljivi+' ('+stEnot+' enot x '+dniDoslej+' dni)']);
+
+  // mesečna razčlenitev
+  v.push([]);
+  v.push(['PO MESECIH']);
+  v.push(['Mesec','Zasedene noci','Razpolozljive noci','Zasedenost (%)','Prihodek (EUR)']);
+  const meseci=Array.from({length:12},()=>({noci:0,prihodek:0,razp:0}));
+  rez.forEach(r=>{
+    const o=new Date(r.odhod); let cur=new Date(r.prihod);
+    const cenaNaNoc=(Number(r.nocitve)>0)?(Number(r.znesek)||0)/Number(r.nocitve):0;
+    while(cur<o){ if(cur.getFullYear()===leto){const mi=cur.getMonth();meseci[mi].noci++;meseci[mi].prihodek+=cenaNaNoc;} cur.setDate(cur.getDate()+1); }
+  });
+  const imenaMes=['Januar','Februar','Marec','April','Maj','Junij','Julij','Avgust','September','Oktober','November','December'];
+  for(let mi=0;mi<12;mi++){
+    const dniVM=new Date(leto,mi+1,0).getDate();
+    let dniVelj=dniVM;
+    if(leto===danes.getFullYear()&&mi>danes.getMonth())dniVelj=0;
+    else if(leto===danes.getFullYear()&&mi===danes.getMonth())dniVelj=danes.getDate();
+    meseci[mi].razp=dniVelj*stEnot;
+    const zas=meseci[mi].razp>0?meseci[mi].noci/meseci[mi].razp*100:0;
+    v.push([imenaMes[mi],meseci[mi].noci,meseci[mi].razp,E(zas),E(meseci[mi].prihodek)]);
+  }
+
+  // kanali
+  v.push([]);
+  v.push(['PO KANALIH']);
+  v.push(['Kanal','Rezervacij','Prihodek (EUR)','Delez (%)','Provizija (EUR)','Neto (EUR)']);
+  const kanali={};
+  rez.forEach(r=>{const k=r.vir||'drugo'; if(!kanali[k])kanali[k]={p:0,st:0,prov:0}; const z=Number(r.znesek)||0; kanali[k].p+=z; kanali[k].st++; kanali[k].prov+=z*provizijaZaRezervacijo(r)/100;});
+  const imena={airbnb:'Airbnb',booking:'Booking.com',direkt:'Neposredno',drugo:'Drugo'};
+  let skupProv=0;
+  Object.entries(kanali).sort((a,b)=>b[1].p-a[1].p).forEach(([k,d])=>{
+    const del=prihodek>0?d.p/prihodek*100:0; skupProv+=d.prov;
+    v.push([imena[k]||k, d.st, E(d.p), E(del), E(d.prov), E(d.p-d.prov)]);
+  });
+  v.push(['SKUPAJ', stRezerv, E(prihodek), '100', E(skupProv), E(prihodek-skupProv)]);
+
+  // posamezne rezervacije (surovi podatki)
+  v.push([]);
+  v.push(['REZERVACIJE (podrobno)']);
+  v.push(['Nepremicnina','Gost','Prihod','Odhod','Noci','Osebe','Vir','Znesek (EUR)','Taksa (EUR)']);
+  rez.slice().sort((a,b)=>new Date(a.prihod)-new Date(b.prihod)).forEach(r=>{
+    v.push([imeNepremicnine(r.nepremicninaId), r.gost||'', r.prihod, r.odhod, r.nocitve||0, r.osebe||0, imena[r.vir]||r.vir||'', E(r.znesek), E(r.taksa)]);
+  });
+
+  const csv=v.map(vr=>vr.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+  prenesiDatoteko('statistika-oddajanja-'+leto+'.csv', '﻿'+csv, 'text/csv');
+  obvestilo('Statistika izvožena v CSV','uspeh');
+}
+
+/* ============================================================
+   CENIK – sezonske cene na noč po obdobjih
+   ============================================================ */
+function cenaZaDatum(npId, datumISO){
+  // vrne ceno na noč za dani datum (zadnje ujemajoče obdobje zmaga), sicer null
+  const obdobja = (P.ceniki||[]).filter(c=>c.nepremicninaId===npId && datumISO>=c.od && datumISO<=c.do);
+  if(obdobja.length===0) return null;
+  return Number(obdobja[obdobja.length-1].cena)||0;
+}
+function predlaganaCenaRezervacije(npId, prihodISO, odhodISO){
+  // sešteje cene po nočeh iz cenika za obdobje bivanja
+  if(!npId||!prihodISO||!odhodISO) return null;
+  let cur=new Date(prihodISO); const o=new Date(odhodISO); let vsota=0, pokrite=0, vse=0;
+  while(cur<o){
+    const iso=cur.toISOString().slice(0,10);
+    const c=cenaZaDatum(npId,iso);
+    vse++; if(c!=null){ vsota+=c; pokrite++; }
+    cur.setDate(cur.getDate()+1);
+  }
+  if(pokrite===0) return null;
+  return {vsota, pokrite, vse};
+}
+
+function cenikiPogled(){
+  const kratke = P.nepremicnine.filter(np=>np.tipNajema==='kratkorocni');
+  let html='';
+  html+='<div class="opozorilo opo-modra"><span class="ik">💡</span><div>Določite <b>različne cene na noč po obdobjih</b> (npr. visoka sezona, vikendi, prazniki). Pri vnosu nove rezervacije vam program <b>predlaga ceno</b> glede na te cenike. To je vaš interni cenik za načrtovanje – ne spreminja cen na Airbnb/Booking.</div></div>';
+
+  if(kratke.length===0){
+    html+=praznoStanje('💰','Ni turističnih nepremičnin','Najprej dodajte nepremičnino tipa "Kratkoročni / turistični".','pojdi(\'nepremicnine\')','Odpri nepremičnine');
+    return html;
+  }
+
+  html+='<div class="vrsta med mb16"><div></div><button class="gumb gumb-primarni" onclick="oknoCenik()">＋ Novo cenovno obdobje</button></div>';
+
+  kratke.forEach(np=>{
+    const obdobja = (P.ceniki||[]).filter(c=>c.nepremicninaId===np.id).sort((a,b)=>(a.od||'').localeCompare(b.od||''));
+    html+='<div class="kartica mb16"><div class="kartica-glava"><h2>'+escHTML(np.naziv)+'</h2><button class="gumb gumb-sekundarni gumb-mini" onclick="oknoCenik(null,\''+np.id+'\')">＋ Obdobje</button></div>';
+    if(obdobja.length===0){
+      html+='<div class="kartica-telo"><p class="txt-mute txt-mini" style="padding:6px 0">Ni določenih cenovnih obdobij. Dodajte prvo, da boste pri rezervacijah dobili predlog cene.</p></div>';
+    }else{
+      html+='<div class="tabela-ovoj"><table><thead><tr><th>Obdobje</th><th>Od – Do</th><th class="t-sredina">Dni</th><th class="t-desno">Cena/noč</th><th></th></tr></thead><tbody>';
+      obdobja.forEach(c=>{
+        const dni = (c.od&&c.do) ? Math.max(0,Math.round((new Date(c.do)-new Date(c.od))/(1000*60*60*24))+1) : 0;
+        html+='<tr><td class="celica-glavna">'+escHTML(c.naziv||'Obdobje')+(c.opomba?'<div class="celica-pod">'+escHTML(c.opomba)+'</div>':'')+'</td>'+
+          '<td class="txt-mini">'+datumSlo(c.od)+' – '+datumSlo(c.do)+'</td>'+
+          '<td class="t-sredina">'+dni+'</td>'+
+          '<td class="t-desno celica-glavna zelen">'+evro(c.cena)+'</td>'+
+          '<td class="t-desno"><div class="vrsta" style="justify-content:flex-end;gap:4px"><button class="gumb-ikona" onclick="oknoCenik(\''+c.id+'\')">✏️</button><button class="gumb-ikona" onclick="izbrisiCenik(\''+c.id+'\')">🗑</button></div></td></tr>';
+      });
+      html+='</tbody></table></div>';
+    }
+    html+='</div>';
+  });
+  return html;
+}
+
+function oknoCenik(idc, npIdPrivzeto){
+  const c = idc ? (P.ceniki||[]).find(x=>x.id===idc) : {nepremicninaId:npIdPrivzeto||'', naziv:'Visoka sezona'};
+  const ur=!!idc;
+  const kratke = P.nepremicnine.filter(np=>np.tipNajema==='kratkorocni');
+  const opcijeNp = kratke.map(np=>'<option value="'+np.id+'"'+(c.nepremicninaId===np.id?' selected':'')+'>'+escHTML(np.naziv)+'</option>').join('');
+  const telo =
+    '<div class="polje"><label>Nepremičnina <span class="ozn">*</span></label><select id="c_np">'+opcijeNp+'</select></div>'+
+    '<div class="polje"><label>Naziv obdobja</label><input id="c_naziv" value="'+escHTML(c.naziv||'')+'" placeholder="npr. Visoka sezona, Prazniki, Vikend"></div>'+
+    '<div class="polje-vrsta-3">'+
+      '<div class="polje"><label>Od <span class="ozn">*</span></label><input id="c_od" type="date" value="'+(c.od||'')+'"></div>'+
+      '<div class="polje"><label>Do <span class="ozn">*</span></label><input id="c_do" type="date" value="'+(c.do||'')+'"></div>'+
+      '<div class="polje"><label>Cena/noč (€) <span class="ozn">*</span></label><input id="c_cena" type="number" min="0" step="1" value="'+(c.cena||'')+'"></div>'+
+    '</div>'+
+    '<div class="polje"><label>Opomba</label><input id="c_opomba" value="'+escHTML(c.opomba||'')+'" placeholder="neobvezno"></div>'+
+    '<div class="namig">💡 Če se obdobja prekrivajo, velja zadnje (spodnje) – tako lahko npr. čez sezono določite dražje vikende.</div>';
+  const noga = (ur?'<button class="gumb gumb-nevarno" style="margin-right:auto" onclick="izbrisiCenik(\''+idc+'\')">🗑 Izbriši</button>':'')+
+    '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
+    '<button class="gumb gumb-primarni" onclick="shraniCenik(\''+(idc||'')+'\')">'+(ur?'Shrani':'Dodaj')+'</button>';
+  odpriModal((ur?'✏️ Uredi':'💰 Novo')+' cenovno obdobje', telo, noga);
+}
+function shraniCenik(idc){
+  const npId=document.getElementById('c_np').value;
+  const od=document.getElementById('c_od').value, doD=document.getElementById('c_do').value;
+  const cena=parseFloat(document.getElementById('c_cena').value)||0;
+  if(!npId||!od||!doD||cena<=0){ obvestilo('Izpolnite obvezna polja','napaka'); return; }
+  if(doD<od){ obvestilo('Datum "Do" mora biti za "Od"','napaka'); return; }
+  if(!P.ceniki) P.ceniki=[];
+  const obj={ nepremicninaId:npId, naziv:document.getElementById('c_naziv').value.trim()||'Obdobje', od, do:doD, cena, opomba:document.getElementById('c_opomba').value.trim() };
+  if(idc){ Object.assign(P.ceniki.find(x=>x.id===idc),obj); obvestilo('Cenik posodobljen','uspeh'); }
+  else{ obj.id=id(); P.ceniki.push(obj); obvestilo('Cenovno obdobje dodano','uspeh'); }
+  shrani(); zapriModal(); izrisiStran();
+}
+function izbrisiCenik(idc){
+  potrdi('Izbriši obdobje','Ali res želite izbrisati to cenovno obdobje?', ()=>{
+    P.ceniki=(P.ceniki||[]).filter(x=>x.id!==idc);
+    shrani(); zapriModal(); izrisiStran(); obvestilo('Obdobje izbrisano','uspeh');
+  });
+}
+
 function oknoRezervacija(idr){
   const r = idr ? P.rezervacije.find(x=>x.id===idr) : {vir:'airbnb', osebe:2};
   const ur=!!idr;
@@ -2477,7 +2832,7 @@ function oknoRezervacija(idr){
   const opcijeNp = kratke.map(np=>'<option value="'+np.id+'"'+(r.nepremicninaId===np.id?' selected':'')+'>'+escHTML(np.naziv)+'</option>').join('');
   const telo =
     '<div class="polje-vrsta">'+
-      '<div class="polje"><label>Nepremičnina <span class="ozn">*</span></label><select id="r_np">'+opcijeNp+'</select></div>'+
+      '<div class="polje"><label>Nepremičnina <span class="ozn">*</span></label><select id="r_np" onchange="osveziPredlogCene()">'+opcijeNp+'</select></div>'+
       '<div class="polje"><label>Vir rezervacije</label><select id="r_vir">'+
         ['airbnb|Airbnb','booking|Booking.com','direkt|Neposredno','drugo|Drugo'].map(o=>{const[v,n]=o.split('|');return '<option value="'+v+'"'+(r.vir===v?' selected':'')+'>'+n+'</option>';}).join('')+
       '</select></div>'+
@@ -2494,6 +2849,7 @@ function oknoRezervacija(idr){
       '<div class="polje"><label>Turist. taksa (€)</label><input id="r_taksa" type="number" min="0" step="0.1" value="'+(r.taksa||'')+'"></div>'+
     '</div>'+
     '<div class="namig" style="margin-top:-6px">💡 Taksa se predlaga samodejno (nočitve × osebe × 1,60 €). Po potrebi popravite glede na vašo občino.</div>'+
+    '<div id="r_predlogCene"></div>'+
     '<div class="polje mt16"><label>Opombe</label><input id="r_opombe" value="'+escHTML(r.opombe||'')+'" placeholder="npr. čistilnina, posebnosti"></div>';
   const noga = (ur?'<button class="gumb gumb-nevarno" style="margin-right:auto" onclick="izbrisiRezervacijo(\''+idr+'\')">🗑 Izbriši</button>':'')+
     '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
@@ -2503,6 +2859,16 @@ function oknoRezervacija(idr){
 function osveziNocitve(){
   const p=document.getElementById('r_prihod').value, o=document.getElementById('r_odhod').value;
   if(p&&o){ const n=Math.max(0,Math.round((new Date(o)-new Date(p))/(1000*60*60*24))); document.getElementById('r_nocitve').value=n; osveziTakso(); }
+  osveziPredlogCene();
+}
+function osveziPredlogCene(){
+  const el=document.getElementById('r_predlogCene'); if(!el) return;
+  const np=document.getElementById('r_np').value;
+  const p=document.getElementById('r_prihod').value, o=document.getElementById('r_odhod').value;
+  const pred = predlaganaCenaRezervacije(np,p,o);
+  if(!pred){ el.innerHTML=''; return; }
+  const opozoriloDelno = pred.pokrite<pred.vse ? ' <span class="txt-mute">('+pred.pokrite+'/'+pred.vse+' noči pokritih s cenikom)</span>' : '';
+  el.innerHTML='<div class="opozorilo opo-zelena" style="margin-top:10px;padding:9px 12px"><span class="ik">💰</span><div>Predlog iz cenika: <b>'+evro(pred.vsota)+'</b>'+opozoriloDelno+' <button type="button" class="gumb gumb-sekundarni gumb-mini" style="margin-left:8px" onclick="document.getElementById(\'r_znesek\').value='+pred.vsota.toFixed(0)+'">Uporabi</button></div></div>';
 }
 function osveziTakso(){
   const n=parseInt(document.getElementById('r_nocitve').value)||0;
@@ -2768,6 +3134,8 @@ STRANI_FN.navodila = function(el, vrhDesno){
     ['🧾','Stroški in režije','Stroški po kategorijah, ločeni od najemnine (davčno pomembno), z označevanjem davčno priznanih.'],
     ['📈','Davki in poročila','Samodejni izračun davka po sedanjem (25%) ali ZIURS (15/5%) režimu. Primerja normirano in dejansko metodo, izvoz v CSV.'],
     ['🛏️','Kratkoročni najem','Rezervacije Airbnb/Booking, turistična taksa, koledarski pregled in opozorilo pri 150-dnevni meji.'],
+    ['📊','Statistika oddajanja','Za turistični najem: ADR (cena/noč), RevPAR, zasedenost po mesecih, prihodek po kanalih z odštetimi provizijami in statistika gostov. Izvoz v CSV.'],
+    ['💰','Sezonski cenik','Različne cene na noč po obdobjih (sezona, vikendi, prazniki). Pri novi rezervaciji program predlaga ceno glede na cenik.'],
     ['📁','Pogodbe in dokumenti','Evidenca dokumentov z opozorili za poteke + generator najemne pogodbe.'],
     ['🔔','Opozorila','Program vas opozori na potek pogodb, zavarovanj, davčne roke in predlaga uskladitev najemnine z inflacijo.'],
     ['🎨','Temni način','Preklop med svetlim in temnim videzom (gumb v meniju spodaj).']
