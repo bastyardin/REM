@@ -24,6 +24,7 @@ Evidenca najemnikov s kontakti, datumom rojstva (pomembno za znižano davčno st
 - **Zapadle najemnine** s samodejnim izračunom zamude
 - **Generator opominov** za neplačnike (pripravljen za e-pošto ali tisk)
 - **Generator računov / položnic** za najemnike
+- **📱 UPN QR koda na računu** — vnesite svoj IBAN v Nastavitvah in na vsakem računu se samodejno izpiše UPN QR koda (standard slovenskih bank). Najemnik jo skenira z mobilno banko in plača brez prepisovanja podatkov
 - **Varščine** — ločen pregled (prejeto, vrnjeno ali zadržano), z davčno opombo
 
 ### 🧾 Stroški in režije
@@ -43,7 +44,7 @@ Modul ponuja tudi:
 - **Nastavljive provizije** — za vsako nepremičnino posebej določite odstotek provizije Airbnb in Booking (privzeto 15 %), ki se upošteva pri izračunu neto prihodka.
 
 ### 📁 Pogodbe in dokumenti
-Evidenca dokumentov (pogodbe, popisni listi, zavarovanja, položnice) z opozorili za poteke. Vključuje **generator osnovne najemne pogodbe** za tisk.
+Evidenca dokumentov (pogodbe, popisni listi, zavarovanja, položnice) z opozorili za poteke. Vključuje **generator osnovne najemne pogodbe** in **generator primopredajnega zapisnika** (ob vselitvi/izselitvi: stanje števcev se predizpolni iz popisa, ključi, stanje nepremičnine, podpisa obeh strank) — oboje za tisk ali PDF.
 
 ### 🔔 Opozorila in roki
 Program vas sam opozori na: potek najemne pogodbe, potek zavarovanja, davčne roke (28. februar in 31. marec), in približevanje 150-dnevni meji pri kratkoročnem najemu. Predlaga tudi letno uskladitev najemnine z inflacijo.
@@ -100,6 +101,8 @@ Kratkoročni (turistični) najem se obravnava kot **dohodek iz dejavnosti** (sob
 **[https://bastyardin.github.io/REM/](https://bastyardin.github.io/REM/)**
 
 Kliknite povezavo in program se odpre takoj v vašem brskalniku — ni namestitve, ni registracije. Nato samo dodate svojo prvo nepremičnino in začnete.
+
+> 🧪 **Najprej samo radovedni?** Kliknite **»Preizkusi z demo podatki«** na uvodnem zaslonu — program se napolni z izmišljenimi nepremičninami, najemniki in rezervacijami, da vse funkcije vidite v živo. Demo podatke nato odstranite z enim klikom.
 
 > 💡 **Nasvet:** Stran si shranite med zaznamke za hiter dostop. Vaši podatki ostanejo shranjeni v brskalniku, tako da jih ob ponovnem obisku najdete tam, kjer ste končali.
 

@@ -428,7 +428,10 @@ const privzetiPodatki = {
     inflacija: 2.0,             // privzeti % za predlog uskladitve najemnine
     zadnjaKopija: '',           // datum zadnje varnostne kopije
     stSprememb: 0,              // števec sprememb od zadnje kopije
-    samodejnoShranjevanje: false // ali je vklopljeno shranjevanje v datoteko
+    samodejnoShranjevanje: false, // ali je vklopljeno shranjevanje v datoteko
+    iban: '',                   // IBAN najemodajalca (za UPN QR na računu)
+    upnUlica: '',               // naslov najemodajalca (prejemnik na UPN)
+    upnKraj: ''
   },
   nepremicnine: [],
   najemniki: [],
@@ -964,6 +967,12 @@ STRANI_FN.nadzor = function(el, vrhDesno){
 
   let html='';
 
+  // demo pasica
+  if(P.demo){
+    html+='<div class="opozorilo opo-oranzna"><span class="ik">🧪</span><div class="vrsta med zavoj" style="flex:1;gap:10px"><div><b>Ogledujete si demo podatke.</b> Vse lahko prosto preizkušate — dodajate, urejate, brišete.</div>'+
+      '<button class="gumb gumb-sekundarni gumb-mini" onclick="odstraniDemoPodatke()">🗑 Odstrani demo podatke</button></div></div>';
+  }
+
   // opozorilo o davčnem režimu
   if(P.nastavitve.davcniRezim==='ziurs'){
     html+='<div class="opozorilo opo-oranzna"><span class="ik">⚠️</span><div><b>Aktiven režim ZIURS (15 % / 5 %).</b> '+
@@ -1137,8 +1146,11 @@ function uvodniZaslon(){
     '<div class="prazno">'+
     '<div class="ik">🏠</div>'+
     '<h3>Dobrodošli v Upravljalcu nepremičnin!</h3>'+
-    '<p>Program za upravljanje nepremičnin v najemu po slovenski zakonodaji. Začnite tako, da dodate svojo prvo nepremičnino.</p>'+
-    '<button class="gumb gumb-primarni" onclick="pojdi(\'nepremicnine\')">＋ Dodaj prvo nepremičnino</button>'+
+    '<p>Program za upravljanje nepremičnin v najemu po slovenski zakonodaji. Začnite tako, da dodate svojo prvo nepremičnino — ali si najprej oglejte, kako vse izgleda z demo podatki.</p>'+
+    '<div class="vrsta zavoj" style="gap:10px;justify-content:center">'+
+      '<button class="gumb gumb-primarni" onclick="pojdi(\'nepremicnine\')">＋ Dodaj prvo nepremičnino</button>'+
+      '<button class="gumb gumb-sekundarni" onclick="naloziDemoPodatke()">🧪 Preizkusi z demo podatki</button>'+
+    '</div>'+
     '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:8px;padding:0 12px 12px">'+
     uvodKartica('🏢','Dodajte nepremičnine','Stanovanja, hiše, garaže – z vsemi podatki.')+
@@ -2471,7 +2483,10 @@ STRANI_FN.kratkorocni = function(el, vrhDesno){
 
   let html='';
   html+='<div class="vrsta med mb16 zavoj"><div class="segment">';
-  for(let l=new Date().getFullYear()-1; l<=new Date().getFullYear(); l++){
+  // leta glede na dejanske rezervacije (vključno prihodnja leta iz iCal uvoza)
+  const letaNabor=new Set(P.rezervacije.map(r=>new Date(r.prihod).getFullYear()).filter(l=>!isNaN(l)));
+  letaNabor.add(new Date().getFullYear()); letaNabor.add(new Date().getFullYear()-1);
+  for(const l of [...letaNabor].sort()){
     html+='<button class="'+(l===leto?'aktiven':'')+'" onclick="stanjeStrani.leto='+l+';izrisiStran()">'+l+'</button>';
   }
   html+='</div><div class="segment"><button class="'+(pogled==='seznam'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'seznam\';izrisiStran()">📋 Seznam</button><button class="'+(pogled==='koledar'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'koledar\';izrisiStran()">📅 Koledar</button><button class="'+(pogled==='statistika'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'statistika\';izrisiStran()">📊 Statistika</button><button class="'+(pogled==='ceniki'?'aktiven':'')+'" onclick="stanjeStrani.pogled=\'ceniki\';izrisiStran()">💰 Cenik</button></div></div>';
@@ -2946,12 +2961,15 @@ function oknoRezervacija(idr){
     '</div>'+
     '<div class="namig" style="margin-top:-6px">💡 Taksa se predlaga samodejno (nočitve × osebe × 1,60 €). Po potrebi popravite glede na vašo občino.</div>'+
     '<div id="r_predlogCene"></div>'+
+    '<div id="r_prekriv"></div>'+
     '<div class="polje mt16"><label>Opombe</label><input id="r_opombe" value="'+escHTML(r.opombe||'')+'" placeholder="npr. čistilnina, posebnosti"></div>';
   const noga = (ur?'<button class="gumb gumb-nevarno" style="margin-right:auto" onclick="izbrisiRezervacijo(\''+idr+'\')">🗑 Izbriši</button>':'')+
     '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
-    '<button class="gumb gumb-primarni" onclick="shraniRezervacijo(\''+(idr||'')+'\')">'+(ur?'Shrani':'Dodaj rezervacijo')+'</button>';
+    '<button class="gumb gumb-primarni" id="r_shraniGumb" onclick="shraniRezervacijo(\''+(idr||'')+'\')">'+(ur?'Shrani':'Dodaj rezervacijo')+'</button>';
+  rezPrekrivanjePotrjeno=false;
   odpriModal((ur?'✏️ Uredi':'🛏️ Nova')+' rezervacija', telo, noga);
 }
+let rezPrekrivanjePotrjeno=false;
 function osveziNocitve(){
   const p=document.getElementById('r_prihod').value, o=document.getElementById('r_odhod').value;
   if(p&&o){ const n=Math.max(0,Math.round((new Date(o)-new Date(p))/(1000*60*60*24))); document.getElementById('r_nocitve').value=n; osveziTakso(); }
@@ -2978,6 +2996,15 @@ function shraniRezervacijo(idr){
   const odhod=document.getElementById('r_odhod').value;
   const znesek=parseFloat(document.getElementById('r_znesek').value)||0;
   if(!npId||!prihod||!odhod||znesek<=0){ obvestilo('Izpolnite obvezna polja','napaka'); return; }
+  // opozorilo ob prekrivanju terminov (ob drugem kliku vseeno shrani)
+  const prekriv=P.rezervacije.find(r=>r.nepremicninaId===npId && r.id!==idr && prihod<r.odhod && odhod>r.prihod);
+  if(prekriv && !rezPrekrivanjePotrjeno){
+    rezPrekrivanjePotrjeno=true;
+    document.getElementById('r_prekriv').innerHTML='<div class="opozorilo opo-oranzna" style="margin-top:10px;margin-bottom:0"><span class="ik">⚠️</span><div><b>Termin se prekriva</b> z rezervacijo '+
+      datumSlo(prekriv.prihod)+' – '+datumSlo(prekriv.odhod)+(prekriv.gost?' ('+escHTML(prekriv.gost)+')':'')+'. Preverite datume; če je prekrivanje namerno, znova kliknite gumb za shranjevanje.</div></div>';
+    const g=document.getElementById('r_shraniGumb'); if(g) g.textContent='Shrani kljub prekrivanju';
+    return;
+  }
   const obj={ nepremicninaId:npId, vir:document.getElementById('r_vir').value, gost:document.getElementById('r_gost').value.trim(),
     prihod, odhod, osebe:parseInt(document.getElementById('r_osebe').value)||1,
     nocitve:parseInt(document.getElementById('r_nocitve').value)||0, znesek,
@@ -3084,7 +3111,8 @@ function obdelajIcal(surovo, virIme){
     // Airbnb blokade: "Airbnb (Not Available)"; ročne blokade: "blocked"/"unavailable"
     const blokada = niz.indexOf('(not available)')>-1 || niz==='blocked' || niz.indexOf('unavailable')>-1;
     const obstaja = P.rezervacije.some(r=> r.icalUid===uid || (r.nepremicninaId===npId && r.prihod===prihod && r.odhod===odhod));
-    dogodki.push({uid, prihod, odhod, nocitve, povzetek, blokada, obstaja, vir});
+    const prekriva = !obstaja && P.rezervacije.some(r=> r.nepremicninaId===npId && r.icalUid!==uid && prihod<r.odhod && odhod>r.prihod);
+    dogodki.push({uid, prihod, odhod, nocitve, povzetek, blokada, obstaja, prekriva, vir});
   });
 
   if(dogodki.length===0){ document.getElementById('ical_rezultat').innerHTML='<div class="opozorilo opo-oranzna"><span class="ik">ℹ️</span><div>V koledarju ni nobenega dogodka.</div></div>'; return; }
@@ -3102,9 +3130,10 @@ function prikaziIcalPredogled(){
   }
   html += '<div style="max-height:260px;overflow-y:auto;border:1.5px solid var(--siva-200);border-radius:10px">';
   icalNajdene.forEach((d,i)=>{
-    const oznaceno = !d.obstaja && !d.blokada;
+    const oznaceno = !d.obstaja && !d.blokada && !d.prekriva;
     const status = d.obstaja ? '<span class="znacka-status z-siva">že uvoženo</span>'
                  : d.blokada ? '<span class="znacka-status z-oranzna">⛔ blokada termina</span>'
+                 : d.prekriva ? '<span class="znacka-status z-oranzna">⚠️ prekrivanje</span>'
                  : '<span class="znacka-status z-zelena">novo</span>';
     html += '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--siva-100);cursor:pointer;font-size:13px">'+
       '<input type="checkbox" data-i="'+i+'" '+(oznaceno?'checked':'')+(d.obstaja?' disabled':'')+' onchange="osveziIcalGumb()">'+
@@ -3153,6 +3182,7 @@ function uvoziIzbraneIcal(){
 STRANI_FN.dokumenti = function(el, vrhDesno){
   document.getElementById('podnaslovStrani').textContent = 'Pogodbe, popisni listi in dokumenti';
   vrhDesno.innerHTML = '<button class="gumb gumb-sekundarni" onclick="oknoGeneratorPogodbe()">📄 Generiraj pogodbo</button>'+
+    '<button class="gumb gumb-sekundarni" onclick="oknoZapisnik()">📋 Primopredajni zapisnik</button>'+
     '<button class="gumb gumb-primarni" onclick="oknoDokument()">＋ Dodaj zapis</button>';
 
   let html='';
@@ -3162,6 +3192,11 @@ STRANI_FN.dokumenti = function(el, vrhDesno){
   html+='<div class="kartica mb16"><div class="kartica-telo"><div class="vrsta med zavoj" style="gap:14px">'+
     '<div class="vrsta" style="gap:14px"><div style="font-size:34px">📄</div><div><div class="napis" style="font-size:15px">Generator najemne pogodbe</div><div class="txt-mini txt-mute">Ustvarite osnutek najemne pogodbe iz podatkov o najemu – pripravljeno za tisk.</div></div></div>'+
     '<button class="gumb gumb-primarni" onclick="oknoGeneratorPogodbe()">Ustvari pogodbo →</button></div></div></div>';
+
+  // primopredajni zapisnik – kartica
+  html+='<div class="kartica mb16"><div class="kartica-telo"><div class="vrsta med zavoj" style="gap:14px">'+
+    '<div class="vrsta" style="gap:14px"><div style="font-size:34px">📋</div><div><div class="napis" style="font-size:15px">Primopredajni zapisnik</div><div class="txt-mini txt-mute">Zapisnik ob vselitvi ali izselitvi — stanje števcev, ključi, stanje nepremičnine in podpisa. Pomemben dokaz pri vračilu varščine.</div></div></div>'+
+    '<button class="gumb gumb-primarni" onclick="oknoZapisnik()">Ustvari zapisnik →</button></div></div></div>';
 
   if(P.dokumenti.length===0){
     html+=praznoStanje('📁','Še ni zabeleženih dokumentov','Zabeležite pogodbe, popisne liste, zavarovanja in druge dokumente za sledljivost.','oknoDokument()','Dodaj zapis');
@@ -3299,6 +3334,183 @@ function shraniPogodboPDF(){
 }
 
 /* ============================================================
+   PRIMOPREDAJNI ZAPISNIK (vselitev / izselitev)
+   ============================================================ */
+function oknoZapisnik(){
+  if(P.najemi.length===0){ obvestilo('Najprej sklenite najem (nepremičnina + najemnik)','napaka'); return; }
+  const najemi=[...P.najemi].sort((a,b)=>(b.aktiven?1:0)-(a.aktiven?1:0));
+  const opcije=najemi.map(n=>'<option value="'+n.id+'">'+escHTML(imeNepremicnine(n.nepremicninaId))+' – '+escHTML(imeNajemnika(n.najemnikId))+(n.aktiven?'':' (zaključen)')+'</option>').join('');
+  const telo=
+    '<div class="polje-vrsta">'+
+      '<div class="polje"><label>Najem</label><select id="zap_najem" onchange="zapisnikPrefill();predogledZapisnika()">'+opcije+'</select></div>'+
+      '<div class="polje"><label>Vrsta primopredaje</label><select id="zap_vrsta" onchange="zapisnikPrefill();predogledZapisnika()">'+
+        '<option value="vselitev">🔑 Vselitev (predaja najemniku)</option><option value="izselitev">📦 Izselitev (vrnitev najemodajalcu)</option></select></div>'+
+    '</div>'+
+    '<div class="polje-vrsta">'+
+      '<div class="polje"><label>Datum primopredaje</label><input id="zap_datum" type="date" value="'+danesISO()+'" onchange="predogledZapisnika()"></div>'+
+      '<div class="polje"><label>Število izročenih ključev</label><input id="zap_kljuci" type="number" min="0" value="2" oninput="predogledZapisnika()"></div>'+
+    '</div>'+
+    '<div class="namig">Stanja števcev se predizpolnijo iz zadnjega popisa (če obstaja) — preverite in po potrebi popravite.</div>'+
+    '<div class="polje-vrsta-3" style="margin-top:8px">'+
+      '<div class="polje"><label>💧 Voda (m³)</label><input id="zap_voda" type="number" step="0.001" oninput="predogledZapisnika()"></div>'+
+      '<div class="polje"><label>⚡ Elektrika (kWh)</label><input id="zap_el" type="number" step="1" oninput="predogledZapisnika()"></div>'+
+      '<div class="polje"><label>🔥 Plin (m³)</label><input id="zap_plin" type="number" step="0.1" oninput="predogledZapisnika()"></div>'+
+    '</div>'+
+    '<div class="polje"><label>Stanje nepremičnine in opreme</label><textarea id="zap_stanje" rows="3" style="width:100%;font-size:13px;line-height:1.5;padding:10px;border:1.5px solid var(--siva-200);border-radius:10px;font-family:inherit" oninput="predogledZapisnika()">Nepremičnina je v dobrem, uporabnem stanju, brez vidnih poškodb. Oprema ustreza popisnemu listu.</textarea></div>'+
+    '<div class="polje"><label>Opombe</label><input id="zap_opombe" oninput="predogledZapisnika()" placeholder="npr. izročen daljinec za garažo, manjša praska na parketu v dnevni sobi"></div>'+
+    '<div id="zap_predogled" class="mt16"></div>';
+  const noga='<button class="gumb gumb-sekundarni" onclick="zapriModal()">Zapri</button>'+
+    '<button class="gumb gumb-sekundarni" onclick="zabeleziZapisnik()">💾 Zabeleži v dokumente</button>'+
+    '<button class="gumb gumb-sekundarni" onclick="shraniZapisnikPDF()">📄 Shrani PDF</button>'+
+    '<button class="gumb gumb-primarni" onclick="natisniZapisnik()">🖨️ Natisni</button>';
+  odpriModal('📋 Primopredajni zapisnik', telo, noga, true);
+  zapisnikPrefill(); predogledZapisnika();
+}
+function zapisnikPrefill(){
+  const n=P.najemi.find(x=>x.id===document.getElementById('zap_najem').value); if(!n) return;
+  const vrsta=document.getElementById('zap_vrsta').value;
+  const popisi=(P.stevci||[]).filter(s=>s.nepremicninaId===n.nepremicninaId).sort((a,b)=>new Date(b.datum)-new Date(a.datum));
+  const ustrezen=popisi.find(s=>s.priloznost===vrsta) || popisi[0];
+  document.getElementById('zap_voda').value = ustrezen&&ustrezen.voda!==''?ustrezen.voda:'';
+  document.getElementById('zap_el').value = ustrezen&&ustrezen.elektrika!==''?ustrezen.elektrika:'';
+  document.getElementById('zap_plin').value = ustrezen&&ustrezen.plin!==''?ustrezen.plin:'';
+}
+function zapisnikHTML(){
+  const n=P.najemi.find(x=>x.id===document.getElementById('zap_najem').value);
+  const np=najdiNepremicnino(n.nepremicninaId);
+  const t=najdiNajemnika(n.najemnikId);
+  const vrsta=document.getElementById('zap_vrsta').value;
+  const datum=document.getElementById('zap_datum').value;
+  const kljuci=document.getElementById('zap_kljuci').value;
+  const voda=document.getElementById('zap_voda').value;
+  const el=document.getElementById('zap_el').value;
+  const plin=document.getElementById('zap_plin').value;
+  const stanje=document.getElementById('zap_stanje').value.trim();
+  const opombe=document.getElementById('zap_opombe').value.trim();
+  const jeVselitev = vrsta==='vselitev';
+
+  let stevciVrstice='';
+  if(voda!=='') stevciVrstice+='<tr><td style="padding:7px 10px;border:1px solid #cbd5e1">💧 Voda</td><td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right"><b>'+escHTML(voda)+'</b> m³</td></tr>';
+  if(el!=='')   stevciVrstice+='<tr><td style="padding:7px 10px;border:1px solid #cbd5e1">⚡ Elektrika</td><td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right"><b>'+escHTML(el)+'</b> kWh</td></tr>';
+  if(plin!=='') stevciVrstice+='<tr><td style="padding:7px 10px;border:1px solid #cbd5e1">🔥 Plin</td><td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right"><b>'+escHTML(plin)+'</b> m³</td></tr>';
+  if(!stevciVrstice) stevciVrstice='<tr><td colspan="2" style="padding:7px 10px;border:1px solid #cbd5e1;color:#64748b">Stanja števcev niso bila popisana.</td></tr>';
+
+  let h='<div style="max-width:680px;margin:0 auto;color:#1e293b;line-height:1.7;font-size:13.5px">';
+  h+='<h2 style="text-align:center;margin-bottom:4px">PRIMOPREDAJNI ZAPISNIK</h2>';
+  h+='<p style="text-align:center;color:#475569;margin-bottom:22px">ob '+(jeVselitev?'vselitvi (predaji nepremičnine najemniku)':'izselitvi (vrnitvi nepremičnine najemodajalcu)')+'</p>';
+  h+='<p><b>Najemodajalec:</b> '+escHTML(P.nastavitve.podjetje||'_______________')+(P.nastavitve.upnUlica?', '+escHTML(P.nastavitve.upnUlica):'')+(P.nastavitve.upnKraj?', '+escHTML(P.nastavitve.upnKraj):'')+'<br>'+
+    '<b>Najemnik:</b> '+escHTML(t?t.ime:'_______________')+(t&&t.naslov?', '+escHTML(t.naslov):'')+'</p>';
+  h+='<p><b>Nepremičnina:</b> '+escHTML(np?np.naziv:'')+(np&&np.naslov?', '+escHTML(np.naslov):'')+(np&&np.povrsina?' ('+np.povrsina+' m²)':'')+'<br>'+
+    '<b>Datum primopredaje:</b> '+datumSlo(datum)+'</p>';
+  h+='<h3 style="font-size:14px;margin:18px 0 8px">1. Stanje števcev na dan primopredaje</h3>';
+  h+='<table style="border-collapse:collapse;width:100%;font-size:13px">'+stevciVrstice+'</table>';
+  h+='<h3 style="font-size:14px;margin:18px 0 8px">2. Ključi</h3>';
+  h+='<p>Najemniku '+(jeVselitev?'je izročenih':'so bili vrnjeni')+' <b>'+escHTML(kljuci||'0')+'</b> ključ(ev) nepremičnine.</p>';
+  h+='<h3 style="font-size:14px;margin:18px 0 8px">3. Stanje nepremičnine</h3>';
+  h+='<p>'+escHTML(stanje||'—')+'</p>';
+  if(opombe) h+='<h3 style="font-size:14px;margin:18px 0 8px">4. Opombe</h3><p>'+escHTML(opombe)+'</p>';
+  h+='<p style="margin-top:18px">'+(jeVselitev
+    ?'Najemnik s podpisom potrjuje prevzem nepremičnine v navedenem stanju. Zapisnik je podlaga za obračun porabe in morebitnih poškodb ob izselitvi.'
+    :'Najemodajalec s podpisom potrjuje vrnitev nepremičnine v navedenem stanju. Zapisnik je podlaga za končni obračun stroškov in vračilo varščine.')+'</p>';
+  h+='<p style="margin-top:10px">Zapisnik je sestavljen v dveh enakih izvodih, od katerih prejme vsaka stranka po enega.</p>';
+  h+='<table style="width:100%;margin-top:44px;font-size:13px"><tr>'+
+    '<td style="width:45%;border-top:1px solid #1e293b;padding-top:6px;text-align:center">Najemodajalec</td>'+
+    '<td style="width:10%"></td>'+
+    '<td style="width:45%;border-top:1px solid #1e293b;padding-top:6px;text-align:center">Najemnik</td></tr></table>';
+  h+='<p style="margin-top:26px;color:#475569">Kraj in datum: ______________________, '+datumSlo(datum)+'</p>';
+  h+='</div>';
+  return h;
+}
+function predogledZapisnika(){
+  const el=document.getElementById('zap_predogled'); if(!el) return;
+  el.innerHTML='<div class="naslov-razdelka">Predogled</div>'+
+    '<div id="zapisnikVsebina" style="background:#fff;border:1px solid var(--siva-200);border-radius:10px;padding:24px;max-height:320px;overflow-y:auto;font-family:Georgia,serif">'+zapisnikHTML()+'</div>';
+}
+function natisniZapisnik(){
+  const w=window.open('','_blank');
+  w.document.write('<html><head><title>Primopredajni zapisnik</title><meta charset="utf-8"><style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b}</style></head><body>'+zapisnikHTML()+'</body></html>');
+  w.document.close(); setTimeout(()=>w.print(),300);
+}
+function shraniZapisnikPDF(){
+  shraniHTMLvPDF(zapisnikHTML(), 'primopredajni-zapisnik-'+document.getElementById('zap_datum').value+'.pdf', 'serif');
+}
+function zabeleziZapisnik(){
+  const n=P.najemi.find(x=>x.id===document.getElementById('zap_najem').value);
+  const vrsta=document.getElementById('zap_vrsta').value;
+  P.dokumenti.push({ id:id(), vrsta:'popis',
+    naziv:'Primopredajni zapisnik ('+(vrsta==='vselitev'?'vselitev':'izselitev')+') — '+imeNajemnika(n.najemnikId),
+    nepremicninaId:n.nepremicninaId, datum:document.getElementById('zap_datum').value, potek:'',
+    lokacija:'', opombe:'Ustvarjeno z generatorjem zapisnika' });
+  shrani();
+  obvestilo('Zapisnik zabeležen med dokumenti','uspeh');
+}
+
+/* ============================================================
+   UPN QR KODA (standard Združenja bank Slovenije)
+   Najemnik kodo skenira z mobilno banko in plača brez prepisovanja.
+   ============================================================ */
+let qrNalaganje = null;
+function naloziQRCode(){
+  if(window.QRCode) return Promise.resolve();
+  if(qrNalaganje) return qrNalaganje;
+  qrNalaganje = new Promise((res, rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload=()=>res();
+    s.onerror=()=>{ qrNalaganje=null; rej(new Error('prenos knjižnice ni uspel')); };
+    document.head.appendChild(s);
+  });
+  return qrNalaganje;
+}
+
+/** odstrani šumnike in posebne znake (UPN QR zahteva omejen nabor) */
+function brezSumnikov(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/đ/g,'d').replace(/Đ/g,'D').replace(/[^\x20-\x7E]/g,'?');
+}
+
+/** sestavi vsebino UPN QR po specifikaciji ZBS: 20 vrstic, vsaka z LF, na koncu kontrolna vsota */
+function sestaviUPNQR(o){
+  const r33=(s)=>brezSumnikov(s).trim().slice(0,33);
+  const polja=[
+    'UPNQR',                                   // 1 vodilni slog
+    '', '', '', '',                            // 2-5 IBAN plačnika, polog, dvig, referenca plačnika
+    r33(o.placnikIme),                         // 6
+    r33(o.placnikUlica),                       // 7
+    r33(o.placnikKraj),                        // 8
+    String(Math.round((Number(o.znesek)||0)*100)).padStart(11,'0'),   // 9 znesek v centih
+    '', '',                                    // 10-11 datum plačila, nujno
+    (o.koda||'OTHR').toUpperCase().slice(0,4), // 12 koda namena
+    brezSumnikov(o.namen).trim().slice(0,42),  // 13 namen plačila
+    o.rok||'',                                 // 14 rok plačila
+    String(o.iban||'').replace(/\s+/g,'').toUpperCase(),                  // 15 IBAN prejemnika
+    String(o.referenca||'SI99').replace(/\s+/g,'').toUpperCase().slice(0,26), // 16 referenca
+    r33(o.prejemnikIme),                       // 17
+    r33(o.prejemnikUlica),                     // 18
+    r33(o.prejemnikKraj)                       // 19
+  ];
+  const telo = polja.join('\n')+'\n';
+  return telo + String(telo.length).padStart(3,'0') + '\n';   // 20 kontrolna vsota
+}
+
+let zadnjiUPN = null;   // podatki za QR na trenutno prikazanem računu
+async function osveziUPNQR(){
+  const el=document.getElementById('upnQR');
+  if(!el || !zadnjiUPN) return;
+  try{ await naloziQRCode(); }
+  catch(e){ el.innerHTML='<div style="font-size:10px;color:#94a3b8;width:150px;text-align:center">QR koda zahteva enkratno internetno povezavo</div>'; return; }
+  try{
+    const zac=document.createElement('div');
+    new QRCode(zac, {text:sestaviUPNQR(zadnjiUPN), width:150, height:150, correctLevel:QRCode.CorrectLevel.M});
+    setTimeout(()=>{
+      const c=zac.querySelector('canvas'), img=zac.querySelector('img');
+      const src = c ? c.toDataURL('image/png') : (img ? img.src : '');
+      if(src) el.innerHTML='<img src="'+src+'" style="width:150px;height:150px;display:block" alt="UPN QR">';
+    }, 60);
+  }catch(e){ /* brez QR, račun še vedno deluje */ }
+}
+
+/* ============================================================
    RAČUN / POLOŽNICA za najemnika
    ============================================================ */
 function oknoRacun(najemId, mesecKljucP){
@@ -3337,9 +3549,35 @@ function predogledRacuna(){
       (str>0?'<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:10px 4px">Obratovalni stroški</td><td style="text-align:right;padding:10px 4px">'+evro(str)+'</td></tr>':'')+
     '</tbody><tfoot><tr style="border-top:2px solid #e2e8f0"><td style="padding:12px 4px;font-weight:800;font-size:15px">SKUPAJ ZA PLAČILO</td><td style="text-align:right;padding:12px 4px;font-weight:800;font-size:15px">'+evro(skupaj)+'</td></tr></tfoot></table>'+
     '<div style="background:#f8fafc;border-radius:8px;padding:14px;font-size:12px;color:#475569"><b>Rok plačila:</b> do 5. dne v mesecu<br><b>Sklic / namen:</b> Najemnina '+obdobje+'</div>'+
+    upnBlokRacuna(t, skupaj, obdobje, mes)+
     '<p style="margin-top:18px;font-size:11px;color:#94a3b8">Najemnina ni predmet DDV (oddajanje nepremičnin fizične osebe). Hvala za pravočasno plačilo.</p>'+
     '</div>';
   document.getElementById('rac_predogled').innerHTML=h;
+  osveziUPNQR();
+}
+
+/** blok z UPN QR kodo na računu (če je v nastavitvah vnesen IBAN) */
+function upnBlokRacuna(t, znesek, obdobje, mes){
+  const n=P.nastavitve;
+  if(!n.iban){
+    zadnjiUPN=null;
+    return '<div style="margin-top:14px;font-size:11px;color:#94a3b8">💡 Namig: v Nastavitvah vnesite svoj IBAN in na računu se bo izpisala UPN QR koda za plačilo z mobilno banko.</div>';
+  }
+  const referenca='SI00'+mes.replace('-','');
+  zadnjiUPN={ placnikIme:t?t.ime:'', placnikUlica:t&&t.naslov?t.naslov:'', placnikKraj:'',
+    znesek, koda:'RENT', namen:'Najemnina '+obdobje, rok:'',
+    iban:n.iban, referenca,
+    prejemnikIme:n.podjetje||'', prejemnikUlica:n.upnUlica||'', prejemnikKraj:n.upnKraj||'' };
+  return '<div style="display:flex;gap:18px;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px;margin-top:16px;page-break-inside:avoid">'+
+    '<div id="upnQR" style="width:150px;height:150px;flex-shrink:0;display:flex;align-items:center;justify-content:center"></div>'+
+    '<div style="font-size:12px;line-height:1.75;color:#334155">'+
+      '<div style="font-weight:800;font-size:12.5px;margin-bottom:4px">📱 Plačajte s skeniranjem (UPN QR)</div>'+
+      'Prejemnik: <b>'+escHTML(n.podjetje||'')+'</b><br>'+
+      'IBAN: <b>'+escHTML(n.iban)+'</b><br>'+
+      'Referenca: <b>'+referenca.slice(0,4)+' '+referenca.slice(4)+'</b> · Koda namena: <b>RENT</b><br>'+
+      'Znesek: <b>'+evro(znesek)+'</b>'+
+      '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px">Kodo skenirajte v mobilni banki (standard UPN QR).</div>'+
+    '</div></div>';
 }
 function natisniRacun(){
   const v=document.getElementById('racunVsebina').innerHTML;
@@ -3478,6 +3716,12 @@ STRANI_FN.nastavitve = function(el, vrhDesno){
   // splošno
   html+='<div class="kartica mb16"><div class="kartica-glava"><h2>Splošno</h2></div><div class="kartica-telo">'+
     '<div class="polje"><label>Ime portfelja / podjetja</label><input id="set_podjetje" value="'+escHTML(n.podjetje||'')+'" placeholder="Moj portfelj"><div class="namig">Prikaže se v meniju in na pogodbah/opominih.</div></div>'+
+    '<div class="polje-vrsta">'+
+      '<div class="polje"><label>Ulica in hišna številka</label><input id="set_ulica" value="'+escHTML(n.upnUlica||'')+'" placeholder="npr. Trubarjeva 1"></div>'+
+      '<div class="polje"><label>Pošta in kraj</label><input id="set_kraj" value="'+escHTML(n.upnKraj||'')+'" placeholder="npr. 1000 Ljubljana"></div>'+
+    '</div>'+
+    '<div class="polje"><label>IBAN za nakazila najemnin</label><input id="set_iban" value="'+escHTML(n.iban||'')+'" placeholder="SI56 0000 0000 0000 000">'+
+      '<div class="namig">📱 Če vnesete IBAN, se na računu za najemnika samodejno izpiše <b>UPN QR koda</b> — najemnik jo skenira z mobilno banko in plača brez prepisovanja. Naslov se uporabi kot podatek prejemnika.</div></div>'+
     '<button class="gumb gumb-primarni" onclick="shraniNastavitve()">Shrani nastavitve</button>'+
     '</div></div>';
 
@@ -3555,6 +3799,11 @@ function miniStat(ik,st,opis){
 }
 function shraniNastavitve(){
   P.nastavitve.podjetje=document.getElementById('set_podjetje').value.trim()||'Moj portfelj';
+  P.nastavitve.upnUlica=document.getElementById('set_ulica').value.trim();
+  P.nastavitve.upnKraj=document.getElementById('set_kraj').value.trim();
+  const iban=document.getElementById('set_iban').value.replace(/\s+/g,'').toUpperCase();
+  if(iban && !/^SI56\d{15}$/.test(iban)){ obvestilo('IBAN ni videti pravilen (SI56 + 15 številk) — preverite','napaka'); }
+  P.nastavitve.iban=iban?iban.replace(/(.{4})/g,'$1 ').trim():'';
   shrani(); izrisiMeni(); obvestilo('Nastavitve shranjene','uspeh');
 }
 function pocistiVse(){
@@ -3562,6 +3811,101 @@ function pocistiVse(){
     P=JSON.parse(JSON.stringify(privzetiPodatki));
     shrani(); pojdi('nadzor'); obvestilo('Vsi podatki izbrisani','uspeh');
   }, 'Da, izbriši vse');
+}
+
+/* ============================================================
+   DEMO PODATKI — za hiter preizkus aplikacije
+   ============================================================ */
+function naloziDemoPodatke(){
+  const jePrazno = P.nepremicnine.length===0 && P.najemniki.length===0 && P.rezervacije.length===0;
+  const zazeni = ()=>{ const tema=P.nastavitve.tema; P=ustvariDemoPodatke(); P.nastavitve.tema=tema; shrani(); pojdi('nadzor'); obvestilo('Demo podatki naloženi — raziščite program! 🧪','uspeh'); };
+  if(jePrazno){ zazeni(); }
+  else potrdi('Naloži demo podatke','S tem boste zamenjali trenutne podatke z demo podatki. Nadaljujem?', zazeni, 'Naloži demo');
+}
+function odstraniDemoPodatke(){
+  potrdi('Odstrani demo podatke','Demo podatki bodo izbrisani in začeli boste s praznim programom.', ()=>{
+    const tema=P.nastavitve.tema;
+    P=JSON.parse(JSON.stringify(privzetiPodatki));
+    P.nastavitve.tema=tema;
+    shrani(); pojdi('nadzor'); obvestilo('Demo podatki odstranjeni — program je pripravljen za vaše podatke','uspeh');
+  }, 'Odstrani');
+}
+function ustvariDemoPodatke(){
+  const d=JSON.parse(JSON.stringify(privzetiPodatki));
+  const zdaj=new Date();
+  const L=zdaj.getFullYear(), M=zdaj.getMonth();
+  const iso=(l,m,dan)=>{ const dt=new Date(l,m,dan); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+  const plusDni=(st)=>{ const dt=new Date(zdaj); dt.setDate(dt.getDate()+st); return dt.toISOString().slice(0,10); };
+
+  d.demo=true;
+  d.nastavitve.podjetje='Demo portfelj';
+
+  d.nepremicnine=[
+    {id:'demo_np1', naziv:'Stanovanje Center', naslov:'Trubarjeva cesta 12, Ljubljana', tip:'Stanovanje', povrsina:62, sobe:'3', tipNajema:'dolgorocni', parcela:'', nabavna:185000, rezervni:25, upravnik:38, provAirbnb:0, provBooking:0, opombe:'', slika:'', ustvarjeno:iso(L-2,M,10)},
+    {id:'demo_np2', naziv:'Garsonjera Šiška', naslov:'Celovška cesta 99, Ljubljana', tip:'Garsonjera', povrsina:28, sobe:'1', tipNajema:'dolgorocni', parcela:'', nabavna:98000, rezervni:12, upravnik:22, provAirbnb:0, provBooking:0, opombe:'', slika:'', ustvarjeno:iso(L-2,M,10)},
+    {id:'demo_np3', naziv:'Apartma Bled', naslov:'Prešernova cesta 8, Bled', tip:'Apartma', povrsina:45, sobe:'2', tipNajema:'kratkorocni', parcela:'', nabavna:160000, rezervni:0, upravnik:0, provAirbnb:15, provBooking:15, opombe:'Turistično oddajanje', slika:'', ustvarjeno:iso(L-1,2,1)}
+  ];
+  d.najemniki=[
+    {id:'demo_t1', ime:'Ana Novak', telefon:'041 234 567', email:'ana.novak@example.com', rojstvo:iso(L-26,4,12), davcna:'', naslov:'Trubarjeva cesta 12, Ljubljana', opombe:'', ustvarjeno:iso(L-1,8,1)},
+    {id:'demo_t2', ime:'Marko Kovač', telefon:'031 555 222', email:'marko.kovac@example.com', rojstvo:iso(L-39,1,3), davcna:'', naslov:'Celovška cesta 99, Ljubljana', opombe:'', ustvarjeno:iso(L-2,M-2,1)}
+  ];
+  // Ana: pogodba se izteče čez 40 dni (opozorilo), mlada <30 (5 % po ZIURS)
+  d.najemi=[
+    {id:'demo_n1', nepremicninaId:'demo_np1', najemnikId:'demo_t1', soba:'', najemnina:650, stroski:120, zacetek:iso(L-1,8,1), konec:plusDni(40), varscina:1300, znizana5:true, aktiven:true},
+    {id:'demo_n2', nepremicninaId:'demo_np2', najemnikId:'demo_t2', soba:'', najemnina:450, stroski:80, zacetek:iso(L-1,M-2,15), konec:'', varscina:900, znizana5:false, aktiven:true}
+  ];
+  // plačila: Ana plačala vse do prejšnjega meseca (tekoči mesec neplačan -> zapadlo), Marko vse
+  d.placila=[];
+  let k=0;
+  for(let dt=new Date(L-1,8,4); dt<new Date(L,M,1); dt.setMonth(dt.getMonth()+1)){
+    d.placila.push({id:'demo_p1_'+(k++), najemId:'demo_n1', znesek:650, datum:dt.toISOString().slice(0,10), vrsta:'najemnina', opis:'Najemnina '+mesecIme(dt.getMonth())});
+  }
+  for(let dt=new Date(L-1,M-2,6); dt<=zdaj; dt.setMonth(dt.getMonth()+1)){
+    d.placila.push({id:'demo_p2_'+(k++), najemId:'demo_n2', znesek:450, datum:dt.toISOString().slice(0,10), vrsta:'najemnina', opis:'Najemnina '+mesecIme(dt.getMonth())});
+  }
+  // stroški (nekaj odbitnih)
+  d.stroski=[
+    {id:'demo_s1', nepremicninaId:'demo_np1', kategorija:'zavarovanje', znesek:145, datum:iso(L,0,15), opis:'Letno zavarovanje stanovanja', odbiten:true},
+    {id:'demo_s2', nepremicninaId:'demo_np1', kategorija:'popravilo', znesek:180, datum:iso(L,M-3,20), opis:'Menjava bojlerja — delo', odbiten:true},
+    {id:'demo_s3', nepremicninaId:'demo_np1', kategorija:'upravnik', znesek:38, datum:iso(L,M-1,8), opis:'Upravnik', odbiten:true},
+    {id:'demo_s4', nepremicninaId:'demo_np1', kategorija:'rezervni', znesek:25, datum:iso(L,M-1,8), opis:'Rezervni sklad', odbiten:false},
+    {id:'demo_s5', nepremicninaId:'demo_np2', kategorija:'upravnik', znesek:22, datum:iso(L,M-1,8), opis:'Upravnik', odbiten:true},
+    {id:'demo_s6', nepremicninaId:'demo_np3', kategorija:'elektrika', znesek:64, datum:iso(L,M-2,12), opis:'Elektrika apartma', odbiten:true},
+    {id:'demo_s7', nepremicninaId:'demo_np3', kategorija:'drugo', znesek:120, datum:iso(L,M-1,28), opis:'Čiščenje med gosti', odbiten:true},
+    {id:'demo_s8', nepremicninaId:'demo_np1', kategorija:'nadomestilo', znesek:95, datum:iso(L,2,31), opis:'NUSZ', odbiten:true}
+  ];
+  // rezervacije v apartmaju (pretekle + prihodnje)
+  const rez=(idr,vir,gost,l,m,dan,noci,osebe,cenaNoc)=>{
+    const prihod=iso(l,m,dan), odhod=iso(l,m,dan+noci);
+    return {id:idr, nepremicninaId:'demo_np3', vir, gost, prihod, odhod, osebe, nocitve:noci,
+      znesek:noci*cenaNoc, taksa:Number((noci*osebe*1.6).toFixed(2)), opombe:''};
+  };
+  d.rezervacije=[
+    rez('demo_r1','booking','Müller',L,1,12,3,2,85),
+    rez('demo_r2','airbnb','Rossi',L,3,2,4,3,90),
+    rez('demo_r3','airbnb','Smith',L,4,18,5,2,95),
+    rez('demo_r4','direkt','Horvat',L,M-1,6,3,4,100),
+    rez('demo_r5','booking','García',L,M,2,4,2,110),
+    rez('demo_r6','airbnb','Dupont',L,M,Math.min(zdaj.getDate()+8,27),3,2,120),
+    rez('demo_r7','booking','Novák',L,M+1,10,7,4,120)
+  ];
+  // sezonski cenik za apartma
+  d.ceniki=[
+    {id:'demo_c1', nepremicninaId:'demo_np3', naziv:'Visoka sezona', od:iso(L,5,15), do:iso(L,7,31), cena:120, opomba:'poletje'},
+    {id:'demo_c2', nepremicninaId:'demo_np3', naziv:'Prazniki', od:iso(L,11,20), do:iso(L+1,0,5), cena:110, opomba:'novo leto'}
+  ];
+  // popis števcev
+  d.stevci=[
+    {id:'demo_st1', nepremicninaId:'demo_np1', priloznost:'vselitev', datum:iso(L-1,8,1), voda:245.3, elektrika:18420, plin:1230, opombe:'Stanje ob vselitvi, fotografirano'},
+    {id:'demo_st2', nepremicninaId:'demo_np1', priloznost:'redni', datum:iso(L,M-2,1), voda:268.1, elektrika:19310, plin:1395, opombe:''}
+  ];
+  // dokumenti (zavarovanje poteče čez 25 dni -> opozorilo)
+  d.dokumenti=[
+    {id:'demo_d1', vrsta:'pogodba', naziv:'Najemna pogodba — Ana Novak', nepremicninaId:'demo_np1', datum:iso(L-1,8,1), potek:plusDni(40), lokacija:'Mapa: Pogodbe 📁', opombe:''},
+    {id:'demo_d2', vrsta:'zavarovanje', naziv:'Zavarovanje stanovanja', nepremicninaId:'demo_np1', datum:iso(L,0,15), potek:plusDni(25), lokacija:'e-pošta', opombe:''},
+    {id:'demo_d3', vrsta:'popis', naziv:'Popisni list ob vselitvi', nepremicninaId:'demo_np1', datum:iso(L-1,8,1), potek:'', lokacija:'Mapa: Popisi', opombe:''}
+  ];
+  return d;
 }
 
 /* ============================================================
