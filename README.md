@@ -39,6 +39,7 @@ Modul ponuja tudi:
 
 - **📊 Statistika oddajanja** — ključni kazalniki kot v profesionalnih orodjih: **ADR** (povprečna cena na noč), **RevPAR** (prihodek na razpoložljivo noč) in **zasedenost** po mesecih (barvni graf). Vključuje **prihodek po kanalih** (Airbnb / Booking / neposredno) z odštetimi provizijami in prikazom neto zneska ter **statistiko gostov** (povprečna dolžina bivanja, število oseb). Vse lahko **izvozite v CSV** (Excel).
 - **💰 Sezonski cenik** — določite različne cene na noč po obdobjih (visoka sezona, vikendi, prazniki). Pri vnosu nove rezervacije vam program **samodejno predlaga ceno** glede na cenik.
+- **📥 Uvoz rezervacij iz Airbnb / Booking (iCal)** — rezervacije uvozite kar iz izvoženega koledarja (datoteka .ics ali povezava), brez ročnega prepisovanja. Program sam zazna vir, preskoči že uvožene rezervacije, označi blokirane termine ter predlaga znesek iz cenika in turistično takso.
 - **Nastavljive provizije** — za vsako nepremičnino posebej določite odstotek provizije Airbnb in Booking (privzeto 15 %), ki se upošteva pri izračunu neto prihodka.
 
 ### 📁 Pogodbe in dokumenti
@@ -50,6 +51,9 @@ Program vas sam opozori na: potek najemne pogodbe, potek zavarovanja, davčne ro
 ### 📑 Letni davčni list
 Z enim klikom ustvarite lepo oblikovan davčni povzetek za celo leto (vse nepremičnine, prihodki, stroški, davek) — pripravljen za tisk ali kot priloga za računovodjo.
 
+### 📄 Shranjevanje v PDF
+Davčni list, najemno pogodbo, račun in opomin lahko z enim klikom **shranite kot datoteko PDF** — pripravljeno za e-pošto ali arhiv, brez tiskanja.
+
 ### 👥 Več najemnikov na stanovanje
 Podpora za sostanovalce — v istem stanovanju ima lahko vsak najemnik svojo sobo, najemnino in plačila. Program sešteje skupno najemnino in pravilno upošteva zasedenost.
 
@@ -58,6 +62,12 @@ Hitro iskanje po nepremičninah in najemnikih ter filtri po statusu — uporabno
 
 ### 📊 Primerjava po letih
 Graf trenda prihodkov in dobička skozi leta — takoj vidite, ali letos zaslužite več kot lani.
+
+### 📲 Namestitev kot aplikacija (PWA)
+Program lahko **namestite na telefon ali računalnik** kot pravo aplikacijo z ikono — v Chrome/Edge kliknite gumb »📲 Namesti aplikacijo« v meniju. Nameščena aplikacija **deluje tudi popolnoma brez interneta**.
+
+### 🔐 Zaklepanje s PIN-om in šifriranje
+V Nastavitvah lahko vklopite **PIN**, ki ga aplikacija zahteva ob vsakem zagonu — vaših podatkov tako ne more odpreti vsak, ki uporablja računalnik. Za varno hrambo v oblaku je na voljo tudi **šifrirana varnostna kopija** (AES-256, zaščitena z geslom).
 
 ### 🎨 Dodatno
 - **Temni način** za lažje delo ponoči
@@ -109,6 +119,11 @@ Podatki se shranjujejo v pomnilnik brskalnika (`localStorage`). Da jih ne izgubi
 
 3. **Samodejna opozorila** — program vas ob zagonu opozori, če je minilo več kot 7 dni od zadnje kopije.
 
+Za zasebnost pa še dve dodatni možnosti (Nastavitve):
+
+4. **Zaklepanje s PIN-om** — aplikacija ob zagonu zahteva PIN. PIN se ne shranjuje, shrani se le njegov kriptografski odtis (PBKDF2 + SHA-256).
+5. **Šifrirana varnostna kopija** — kopija, zaklenjena z geslom (AES-256). Brez gesla je vsebine nemogoče prebrati, zato je primerna tudi za oblak.
+
 ### GDPR in anonimna statistika
 
 Ob prvem zagonu se prikaže obvestilo o zasebnosti. Program **ne uporablja piškotkov za sledenje** in **ne zbira osebnih podatkov**. Vaši podatki o nepremičninah in najemnikih ostanejo izključno na vaši napravi.
@@ -124,7 +139,7 @@ Spletna različica lahko uporablja **[Umami](https://umami.is)** — odprtokodno
 ## ❓ Pogosta vprašanja
 
 **Ali potrebujem internet?**
-Le za prvo odprtje strani. Ko se aplikacija naloži, vse delo (vnos, izračuni, shranjevanje) poteka v vašem brskalniku — vaši podatki se ne pošiljajo na splet.
+Le za prvo odprtje strani. Ko se aplikacija naloži, vse delo (vnos, izračuni, shranjevanje) poteka v vašem brskalniku — vaši podatki se ne pošiljajo na splet. Če aplikacijo **namestite** (gumb »📲 Namesti aplikacijo«), deluje tudi popolnoma brez interneta.
 
 **Ali so moji podatki varni?**
 Da. Ostajajo izključno na vaši napravi (v brskalniku). Program nima strežnika in ne zbira osebnih podatkov.

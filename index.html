@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Upravljalec nepremičnin</title>
 
+<!-- PWA: namestitev kot aplikacija + delo brez interneta -->
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="ikona-192.png">
+<link rel="apple-touch-icon" href="ikona-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Nepremičnine">
+
 <!-- ============================================================
      UMAMI ANALYTICS (anonimno, brez piškotkov, GDPR-skladno)
      ============================================================
@@ -304,6 +313,20 @@ tbody tr:hover{background:var(--siva-50)}
 #gdprPasica .tekst b{color:#fff}
 #gdprPasica .tekst a{color:#93c5fd;text-decoration:underline;cursor:pointer}
 #gdprPasica .gumbi{display:flex;gap:10px;flex-shrink:0}
+
+/* PIN zaklenjen zaslon */
+#pinZaklep{position:fixed;inset:0;z-index:500;background:var(--siva-50);display:none;align-items:center;justify-content:center;padding:20px}
+#pinZaklep.viden{display:flex}
+#pinZaklep .pin-okno{background:var(--bela);border:1px solid var(--siva-200);border-radius:18px;box-shadow:0 18px 50px rgba(15,23,42,.18);padding:36px 32px;max-width:360px;width:100%;text-align:center}
+#pinZaklep .pin-ikona{font-size:44px;margin-bottom:10px}
+#pinZaklep h2{font-size:19px;margin-bottom:6px}
+#pinZaklep p{font-size:13px;color:var(--siva-500);margin-bottom:18px}
+#pinZaklep input{width:100%;text-align:center;font-size:24px;letter-spacing:10px;padding:12px;border:1.5px solid var(--siva-200);border-radius:12px;margin-bottom:12px;background:var(--siva-50);color:var(--siva-900)}
+#pinZaklep input:focus{outline:none;border-color:var(--modra)}
+#pinZaklep .gumb{width:100%;justify-content:center}
+#pinZaklep #pinNapaka{color:var(--rdeca);font-size:12.5px;font-weight:600;min-height:18px;margin-bottom:8px}
+#pinZaklep a{display:inline-block;margin-top:14px;font-size:12px;color:var(--siva-500);text-decoration:underline;cursor:pointer}
+#pinZaklep #pinPomoc{margin-top:12px;font-size:12px;color:var(--siva-500);line-height:1.6;text-align:left;background:var(--siva-50);border-radius:10px;padding:12px}
 </style>
 </head>
 <body>
@@ -317,6 +340,7 @@ tbody tr:hover{background:var(--siva-50)}
     </div>
     <nav class="meni" id="meni"><!-- gumbi se vstavijo z JS --></nav>
     <div class="stranica-noga">
+      <button onclick="namestiPWA()" id="gumbNamestiPWA" style="display:none">📲 Namesti aplikacijo</button>
       <button onclick="preklopiTemo()" id="gumbTema">🌙 Temni način</button>
       <button onclick="izvoziVarnostno()">💾 Varnostna kopija</button>
       <button onclick="document.getElementById('uvozDat').click()">📂 Uvozi podatke</button>
@@ -353,6 +377,20 @@ tbody tr:hover{background:var(--siva-50)}
     </div>
     <div class="modal-telo" id="modalTelo"></div>
     <div class="modal-noga" id="modalNoga"></div>
+  </div>
+</div>
+
+<!-- PIN zaklenjen zaslon -->
+<div id="pinZaklep">
+  <div class="pin-okno">
+    <div class="pin-ikona">🔒</div>
+    <h2>Aplikacija je zaklenjena</h2>
+    <p>Za dostop do podatkov vnesite svoj PIN.</p>
+    <input id="pinVnos" type="password" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="••••">
+    <div id="pinNapaka"></div>
+    <button class="gumb gumb-primarni" id="pinGumb" onclick="poskusiOdkleniti()">Odkleni</button>
+    <a onclick="document.getElementById('pinPomoc').style.display='block';this.style.display='none'">Pozabljen PIN?</a>
+    <div id="pinPomoc" style="display:none">Brez PIN-a dostop do aplikacije ni mogoč. Če imate <b>varnostno kopijo</b>, lahko v nastavitvah brskalnika počistite podatke te strani (s tem se izbrišejo podatki in PIN) ter kopijo nato uvozite nazaj.</div>
   </div>
 </div>
 
@@ -1868,6 +1906,7 @@ function oknoOpomin(najemId, mesec){
     '<textarea id="opomin_t" style="width:100%;min-height:280px;font-size:13px;line-height:1.6;padding:14px;border:1.5px solid var(--siva-200);border-radius:10px">'+escHTML(besedilo)+'</textarea>';
   const noga = '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Zapri</button>'+
     (t&&t.email?'<a class="gumb gumb-sekundarni" href="mailto:'+encodeURIComponent(t.email)+'?subject='+encodeURIComponent('Opomin – najemnina '+obdobje)+'&body='+encodeURIComponent(besedilo)+'">✉ Odpri e-pošto</a>':'')+
+    '<button class="gumb gumb-sekundarni" onclick="shraniOpominPDF()">📄 Shrani PDF</button>'+
     '<button class="gumb gumb-primarni" onclick="kopirajOpomin()">📋 Kopiraj besedilo</button>';
   odpriModal('✉ Opomin za plačilo', telo, noga);
 }
@@ -1876,6 +1915,10 @@ function kopirajOpomin(){
   ta.select();
   try{ document.execCommand('copy'); obvestilo('Besedilo kopirano','uspeh'); }
   catch(e){ navigator.clipboard && navigator.clipboard.writeText(ta.value).then(()=>obvestilo('Kopirano','uspeh')); }
+}
+function shraniOpominPDF(){
+  const t=document.getElementById('opomin_t').value;
+  shraniHTMLvPDF('<div style="max-width:640px;margin:0 auto;white-space:pre-wrap;font-size:13.5px;line-height:1.8">'+escHTML(t)+'</div>', 'opomin-'+danesISO()+'.pdf', 'serif');
 }
 
 /* --- vsa plačila --- */
@@ -2234,7 +2277,8 @@ STRANI_FN.davki = function(el, vrhDesno){
   html+='<div class="kartica mt24"><div class="kartica-telo"><div class="vrsta med zavoj" style="gap:12px">'+
     '<div><div class="napis">Davčno poročilo za '+leto+'</div><div class="txt-mini txt-mute">Natisnite lep povzetek za računovodjo ali izvozite v Excel.</div></div>'+
     '<div class="vrsta" style="gap:8px"><button class="gumb gumb-sekundarni" onclick="izvoziDavkeCSV('+leto+')">📥 CSV</button>'+
-    '<button class="gumb gumb-primarni" onclick="natisniDavcniList('+leto+')">📄 Davčni list (PDF/tisk)</button></div></div></div></div>';
+    '<button class="gumb gumb-sekundarni" onclick="natisniDavcniList('+leto+')">🖨️ Davčni list (tisk)</button>'+
+    '<button class="gumb gumb-primarni" onclick="shraniDavcniListPDF('+leto+')">📄 Shrani PDF</button></div></div></div></div>';
 
   // pravno opozorilo
   html+='<div class="opozorilo opo-modra mt16"><span class="ik">📌</span><div><b>Opomba:</b> Izračuni so informativne narave in v pomoč pri pregledu. Za uradno napoved in optimizacijo se posvetujte z računovodjo ali preverite na FURS (eDavki). Pri dolgoročnem najemu program privzeto prikaže ugodnejšo med normirano in dejansko metodo.</div></div>';
@@ -2272,8 +2316,8 @@ function izvoziDavkeCSV(leto){
   obvestilo('CSV izvožen','uspeh');
 }
 
-/* --- LETNI DAVČNI LIST za tisk (lep povzetek za računovodjo) --- */
-function natisniDavcniList(leto){
+/* --- LETNI DAVČNI LIST (skupni HTML za tisk in PDF) --- */
+function davcniListHTML(leto){
   const rezim = P.nastavitve.davcniRezim==='ziurs'?'ZIURS (15 % / 5 %)':'Sedanja cedularna (25 %)';
   let skupPrihodek=0, skupOsnova=0, skupDavek=0;
   let vrstice='';
@@ -2335,10 +2379,16 @@ function natisniDavcniList(leto){
   h+='<div style="margin-top:24px;padding:14px;background:#fff7ed;border-radius:8px;font-size:11px;color:#9a3412;line-height:1.6">'+
     '<b>Pomembno:</b> Ta dokument je informativni pripomoček in ne nadomešča uradne davčne napovedi. Rok za dolgoročni najem: 28. februar; za dejavnost (kratkoročni): 31. marec. Pri dolgoročnem najemu je prikazana ugodnejša med normirano (10 %) in dejansko metodo stroškov. Za uradno napoved preverite na FURS (eDavki) ali se posvetujte z računovodjo.</div>';
   h+='<div style="margin-top:14px;font-size:10px;color:#94a3b8;text-align:center">Ustvarjeno z Upravljalcem nepremičnin</div></div>';
-
+  return h;
+}
+function natisniDavcniList(leto){
+  const h = davcniListHTML(leto);
   const w=window.open('','_blank');
   w.document.write('<html><head><title>Davčni list '+leto+'</title><meta charset="utf-8"></head><body style="margin:30px">'+h+'</body></html>');
   w.document.close(); setTimeout(()=>w.print(),400);
+}
+function shraniDavcniListPDF(leto){
+  shraniHTMLvPDF(davcniListHTML(leto), 'davcni-list-'+leto+'.pdf');
 }
 
 function prenesiDatoteko(ime, vsebina, tip){
@@ -2351,12 +2401,58 @@ function prenesiDatoteko(ime, vsebina, tip){
 }
 
 /* ============================================================
+   IZVOZ V PDF (html2pdf.js — naloži se ob prvi uporabi in se
+   shrani v predpomnilnik, zato pozneje deluje tudi brez interneta)
+   ============================================================ */
+let html2pdfNalaganje = null;
+function naloziHtml2pdf(){
+  if(window.html2pdf) return Promise.resolve();
+  if(html2pdfNalaganje) return html2pdfNalaganje;
+  html2pdfNalaganje = new Promise((res, rej)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload = ()=>res();
+    s.onerror = ()=>{ html2pdfNalaganje=null; rej(new Error('prenos knjižnice ni uspel')); };
+    document.head.appendChild(s);
+  });
+  return html2pdfNalaganje;
+}
+
+/** iz HTML vsebine ustvari in prenese PDF (A4) */
+async function shraniHTMLvPDF(vsebinaHTML, imeDatoteke, pisava){
+  try{ await naloziHtml2pdf(); }
+  catch(e){ obvestilo('Za prvi PDF je potrebna internetna povezava (enkraten prenos knjižnice). Do takrat uporabite 🖨️ tisk.','napaka'); return; }
+  const el = document.createElement('div');
+  el.innerHTML = vsebinaHTML;
+  el.style.cssText = 'width:740px;padding:20px;background:#fff;color:#1e293b;font-size:13px;line-height:1.6;font-family:'+
+    (pisava==='serif' ? 'Georgia,\'Times New Roman\',serif' : '-apple-system,Segoe UI,Arial,sans-serif');
+  // element mora biti v dokumentu (izven vidnega polja), da se pravilno izriše
+  const ovoj = document.createElement('div');
+  ovoj.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1';
+  ovoj.appendChild(el);
+  document.body.appendChild(ovoj);
+  obvestilo('Pripravljam PDF ...','uspeh');
+  try{
+    await html2pdf().set({
+      margin:[10,10,12,10],
+      filename:imeDatoteke,
+      image:{type:'jpeg', quality:0.95},
+      html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff'},
+      jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
+      pagebreak:{mode:['css','legacy']}
+    }).from(el).save();
+    obvestilo('PDF shranjen med prenose','uspeh');
+  }catch(e){ obvestilo('Izdelava PDF ni uspela — uporabite 🖨️ tisk','napaka'); }
+  finally{ ovoj.remove(); }
+}
+
+/* ============================================================
    STRAN: KRATKOROČNI NAJEM (Airbnb / Booking)
    ============================================================ */
 STRANI_FN.kratkorocni = function(el, vrhDesno){
   document.getElementById('podnaslovStrani').textContent = 'Turistično oddajanje, rezervacije in taksa';
   const kratke = P.nepremicnine.filter(np=>np.tipNajema==='kratkorocni');
-  vrhDesno.innerHTML = kratke.length>0 ? '<button class="gumb gumb-primarni" onclick="oknoRezervacija()">＋ Nova rezervacija</button>' : '';
+  vrhDesno.innerHTML = kratke.length>0 ? '<button class="gumb gumb-sekundarni" onclick="oknoUvozIcal()">📥 Uvozi iCal</button><button class="gumb gumb-primarni" onclick="oknoRezervacija()">＋ Nova rezervacija</button>' : '';
 
   if(kratke.length===0){
     el.innerHTML = '<div class="opozorilo opo-modra"><span class="ik">💡</span><div>Za kratkoročni (turistični) najem označite nepremičnino kot <b>"Kratkoročni / turistični"</b> pri njenem urejanju. Tukaj boste nato vodili rezervacije, nočitve in turistično takso.</div></div>'+
@@ -2898,6 +2994,160 @@ function izbrisiRezervacijo(idr){
 }
 
 /* ============================================================
+   UVOZ REZERVACIJ IZ iCal (Airbnb / Booking koledar)
+   ============================================================ */
+let icalNajdene = [];   // razčlenjeni dogodki za predogled
+
+function oknoUvozIcal(){
+  const kratke = P.nepremicnine.filter(np=>np.tipNajema==='kratkorocni');
+  if(kratke.length===0){ obvestilo('Najprej označite nepremičnino kot kratkoročno','napaka'); return; }
+  icalNajdene = [];
+  const opcijeNp = kratke.map(np=>'<option value="'+np.id+'">'+escHTML(np.naziv)+'</option>').join('');
+  const telo =
+    '<div class="opozorilo opo-modra"><span class="ik">📥</span><div>Uvozite rezervacije neposredno iz koledarja Airbnb ali Booking (format <b>iCal / .ics</b>). '+
+      'Povezavo oz. datoteko najdete: <b>Airbnb</b> → Koledar → Razpoložljivost → Povezovanje koledarjev → Izvozi koledar · '+
+      '<b>Booking</b> → Koledar → Sinhronizacija koledarjev → Izvozi koledar.</div></div>'+
+    '<div class="polje-vrsta">'+
+      '<div class="polje"><label>Nepremičnina <span class="ozn">*</span></label><select id="ical_np">'+opcijeNp+'</select></div>'+
+      '<div class="polje"><label>Vir rezervacij</label><select id="ical_vir">'+
+        '<option value="auto">🔍 Zaznaj samodejno</option><option value="airbnb">Airbnb</option><option value="booking">Booking.com</option><option value="direkt">Neposredno</option><option value="drugo">Drugo</option>'+
+      '</select></div>'+
+    '</div>'+
+    '<div class="naslov-razdelka" style="margin-top:4px">1. možnost: datoteka .ics</div>'+
+    '<div class="polje"><input type="file" id="ical_dat" accept=".ics,text/calendar" onchange="uvoziIcalDatoteko(event)"></div>'+
+    '<div class="naslov-razdelka">2. možnost: spletna povezava (URL)</div>'+
+    '<div class="vrsta" style="gap:8px"><input id="ical_url" placeholder="https://www.airbnb.com/calendar/ical/..." style="flex:1">'+
+      '<button class="gumb gumb-sekundarni" onclick="prenesiIcalUrl()">Prenesi</button></div>'+
+    '<div class="namig">Če prenos prek povezave ne uspe (varnostne omejitve brskalnika), uporabite 1. možnost — povezavo odprite v novem zavihku in shranite datoteko .ics.</div>'+
+    '<div id="ical_rezultat" style="margin-top:14px"></div>';
+  const noga = '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
+    '<button class="gumb gumb-primarni" id="ical_gumbUvozi" onclick="uvoziIzbraneIcal()" disabled>Uvozi izbrane</button>';
+  odpriModal('📥 Uvoz rezervacij (iCal)', telo, noga, true);
+}
+
+function uvoziIcalDatoteko(e){
+  const dat = e.target.files[0]; if(!dat) return;
+  const r = new FileReader();
+  r.onload = (ev)=>{ obdelajIcal(String(ev.target.result), dat.name); };
+  r.readAsText(dat);
+  e.target.value='';
+}
+
+async function prenesiIcalUrl(){
+  const url = (document.getElementById('ical_url').value||'').trim();
+  if(!url){ obvestilo('Vnesite povezavo do koledarja','napaka'); return; }
+  const el = document.getElementById('ical_rezultat');
+  el.innerHTML = '<div class="txt-mute" style="font-size:13px">⏳ Prenašam koledar ...</div>';
+  try{
+    const odg = await fetch(url);
+    if(!odg.ok) throw new Error('HTTP '+odg.status);
+    obdelajIcal(await odg.text(), url);
+  }catch(err){
+    el.innerHTML = '<div class="opozorilo opo-oranzna"><span class="ik">⚠️</span><div><b>Prenos ni uspel.</b> Airbnb in Booking pogosto ne dovolita neposrednega prenosa iz brskalnika (CORS zaščita). '+
+      'Odprite povezavo v novem zavihku, shranite datoteko <b>.ics</b> na računalnik in jo uvozite zgoraj prek 1. možnosti.</div></div>';
+  }
+}
+
+/** razčleni vsebino iCal in pripravi predogled */
+function obdelajIcal(surovo, virIme){
+  // "unfold" – nadaljevalne vrstice se začnejo s presledkom ali tabom
+  const tekst = surovo.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'');
+  if(tekst.indexOf('BEGIN:VCALENDAR')===-1){ obvestilo('Datoteka ni veljaven iCal koledar','napaka'); return; }
+
+  // zaznava vira iz PRODID / imena / UID-jev
+  let vir = document.getElementById('ical_vir').value;
+  if(vir==='auto'){
+    const vse=(tekst+' '+(virIme||'')).toLowerCase();
+    vir = vse.indexOf('airbnb')>-1 ? 'airbnb' : vse.indexOf('booking')>-1 ? 'booking' : 'drugo';
+  }
+
+  const npId = document.getElementById('ical_np').value;
+  const dogodki = [];
+  const bloki = tekst.split('BEGIN:VEVENT').slice(1);
+  bloki.forEach(b=>{
+    b = b.split('END:VEVENT')[0];
+    const lastnost = (ime)=>{
+      const m = b.match(new RegExp('^'+ime+'[^:\\r\\n]*:(.*)$','mi'));
+      return m ? m[1].trim() : '';
+    };
+    const datum = (v)=>{ // 20260712 ali 20260712T140000Z -> 2026-07-12
+      const m = String(v).match(/(\d{4})(\d{2})(\d{2})/);
+      return m ? m[1]+'-'+m[2]+'-'+m[3] : '';
+    };
+    const prihod = datum(lastnost('DTSTART'));
+    const odhod  = datum(lastnost('DTEND')) || prihod;
+    if(!prihod) return;
+    const povzetek = lastnost('SUMMARY') || '(brez naziva)';
+    const uid = lastnost('UID') || (prihod+'_'+odhod+'_'+povzetek);
+    const nocitve = Math.max(1, Math.round((new Date(odhod)-new Date(prihod))/(1000*60*60*24)));
+    const niz = povzetek.toLowerCase();
+    // Airbnb blokade: "Airbnb (Not Available)"; ročne blokade: "blocked"/"unavailable"
+    const blokada = niz.indexOf('(not available)')>-1 || niz==='blocked' || niz.indexOf('unavailable')>-1;
+    const obstaja = P.rezervacije.some(r=> r.icalUid===uid || (r.nepremicninaId===npId && r.prihod===prihod && r.odhod===odhod));
+    dogodki.push({uid, prihod, odhod, nocitve, povzetek, blokada, obstaja, vir});
+  });
+
+  if(dogodki.length===0){ document.getElementById('ical_rezultat').innerHTML='<div class="opozorilo opo-oranzna"><span class="ik">ℹ️</span><div>V koledarju ni nobenega dogodka.</div></div>'; return; }
+  dogodki.sort((a,b)=>new Date(a.prihod)-new Date(b.prihod));
+  icalNajdene = dogodki;
+  prikaziIcalPredogled();
+}
+
+function prikaziIcalPredogled(){
+  const el = document.getElementById('ical_rezultat');
+  const novih = icalNajdene.filter(d=>!d.obstaja && !d.blokada).length;
+  let html = '<div class="naslov-razdelka">Najdeni dogodki ('+icalNajdene.length+')</div>';
+  if(icalNajdene.some(d=>d.vir==='booking')){
+    html += '<div class="namig" style="margin-bottom:8px">Booking v koledar ne zapiše imen gostov in zneskov — po uvozu rezervacije po potrebi dopolnite.</div>';
+  }
+  html += '<div style="max-height:260px;overflow-y:auto;border:1.5px solid var(--siva-200);border-radius:10px">';
+  icalNajdene.forEach((d,i)=>{
+    const oznaceno = !d.obstaja && !d.blokada;
+    const status = d.obstaja ? '<span class="znacka-status z-siva">že uvoženo</span>'
+                 : d.blokada ? '<span class="znacka-status z-oranzna">⛔ blokada termina</span>'
+                 : '<span class="znacka-status z-zelena">novo</span>';
+    html += '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--siva-100);cursor:pointer;font-size:13px">'+
+      '<input type="checkbox" data-i="'+i+'" '+(oznaceno?'checked':'')+(d.obstaja?' disabled':'')+' onchange="osveziIcalGumb()">'+
+      '<span style="min-width:170px;font-weight:600">'+datumSlo(d.prihod)+' → '+datumSlo(d.odhod)+'</span>'+
+      '<span class="txt-mute">'+d.nocitve+' noč'+(d.nocitve===1?'':d.nocitve===2?'i':'itve')+'</span>'+
+      '<span style="flex:1" class="txt-mute">'+escHTML(d.povzetek)+'</span>'+status+'</label>';
+  });
+  html += '</div>';
+  html += '<div class="namig" style="margin-top:8px">Zneski se predlagajo iz vašega cenika (če obstaja), turistična taksa za 2 osebi. Po uvozu lahko vsako rezervacijo uredite.</div>';
+  el.innerHTML = html;
+  osveziIcalGumb();
+}
+
+function osveziIcalGumb(){
+  const g = document.getElementById('ical_gumbUvozi'); if(!g) return;
+  const st = [...document.querySelectorAll('#ical_rezultat input[type=checkbox]:checked')].length;
+  g.disabled = st===0;
+  g.textContent = st>0 ? 'Uvozi izbrane ('+st+')' : 'Uvozi izbrane';
+}
+
+function uvoziIzbraneIcal(){
+  const npId = document.getElementById('ical_np').value;
+  const izbrane = [...document.querySelectorAll('#ical_rezultat input[type=checkbox]:checked')].map(c=>icalNajdene[Number(c.dataset.i)]);
+  if(izbrane.length===0) return;
+  const taksaNoc = Number(P.nastavitve.taksaNaNoc)||1.60;
+  let st=0;
+  izbrane.forEach(d=>{
+    if(!d || d.obstaja) return;
+    const pred = predlaganaCenaRezervacije(npId, d.prihod, d.odhod);
+    P.rezervacije.push({
+      id:id(), nepremicninaId:npId, vir:(d.vir==='drugo'&&d.blokada)?'drugo':d.vir, gost:'',
+      prihod:d.prihod, odhod:d.odhod, osebe:2, nocitve:d.nocitve,
+      znesek: pred ? Math.round(pred.vsota) : 0,
+      taksa: Number((d.nocitve*2*taksaNoc).toFixed(2)),
+      opombe:'Uvoženo iz iCal ('+d.povzetek+')', icalUid:d.uid
+    });
+    st++;
+  });
+  shrani(); zapriModal(); izrisiStran();
+  obvestilo(st+' rezervacij uvoženih — dopolnite zneske, kjer je potrebno','uspeh');
+}
+
+/* ============================================================
    STRAN: POGODBE IN DOKUMENTI
    ============================================================ */
 STRANI_FN.dokumenti = function(el, vrhDesno){
@@ -2980,7 +3230,8 @@ function oknoGeneratorPogodbe(){
     '<div id="pog_predogled"></div>';
   const noga='<button class="gumb gumb-sekundarni" onclick="zapriModal()">Zapri</button>'+
     '<button class="gumb gumb-sekundarni" onclick="kopirajPogodbo()">📋 Kopiraj</button>'+
-    '<button class="gumb gumb-primarni" onclick="natisniPogodbo()">🖨️ Natisni / PDF</button>';
+    '<button class="gumb gumb-sekundarni" onclick="shraniPogodboPDF()">📄 Shrani PDF</button>'+
+    '<button class="gumb gumb-primarni" onclick="natisniPogodbo()">🖨️ Natisni</button>';
   odpriModal('📄 Generator najemne pogodbe', telo, noga, true);
   predogledPogodbe();
 }
@@ -3041,6 +3292,11 @@ function natisniPogodbo(){
   w.document.write('<html><head><title>Najemna pogodba</title><meta charset="utf-8"><style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.7}h2{text-align:center}table{width:100%}</style></head><body>'+vsebina+'</body></html>');
   w.document.close(); setTimeout(()=>w.print(),300);
 }
+function shraniPogodboPDF(){
+  let v=document.getElementById('pogodbaVsebina').innerHTML;
+  v=v.replace(/<h2/g,'<h2 style="text-align:center"').replace(/<table/g,'<table style="width:100%"');
+  shraniHTMLvPDF('<div style="max-width:700px;margin:0 auto;line-height:1.7">'+v+'</div>', 'najemna-pogodba-'+danesISO()+'.pdf', 'serif');
+}
 
 /* ============================================================
    RAČUN / POLOŽNICA za najemnika
@@ -3056,7 +3312,8 @@ function oknoRacun(najemId, mesecKljucP){
     '<div class="polje"><label>Št. računa</label><input id="rac_st" value="'+danMes.replace('-','-')+'-001" onchange="predogledRacuna()"></div>'+
     '<div id="rac_predogled"></div>';
   const noga='<button class="gumb gumb-sekundarni" onclick="zapriModal()">Zapri</button>'+
-    '<button class="gumb gumb-primarni" onclick="natisniRacun()">🖨️ Natisni / PDF</button>';
+    '<button class="gumb gumb-sekundarni" onclick="shraniRacunPDF()">📄 Shrani PDF</button>'+
+    '<button class="gumb gumb-primarni" onclick="natisniRacun()">🖨️ Natisni</button>';
   odpriModal('🧾 Račun / položnica za najemnika', telo, noga, true);
   predogledRacuna();
 }
@@ -3089,6 +3346,11 @@ function natisniRacun(){
   const w=window.open('','_blank');
   w.document.write('<html><head><title>Račun</title><meta charset="utf-8"><style>body{font-family:-apple-system,Arial,sans-serif;max-width:680px;margin:40px auto;padding:0 20px}table{width:100%}</style></head><body>'+v+'</body></html>');
   w.document.close(); setTimeout(()=>w.print(),300);
+}
+function shraniRacunPDF(){
+  const v=document.getElementById('racunVsebina').innerHTML;
+  const st=(document.getElementById('rac_st').value||'racun').replace(/[^a-zA-Z0-9\-_]/g,'-');
+  shraniHTMLvPDF('<div style="max-width:660px;margin:0 auto">'+v+'</div>', 'racun-'+st+'.pdf');
 }
 
 /* ============================================================
@@ -3241,6 +3503,7 @@ STRANI_FN.nastavitve = function(el, vrhDesno){
   html+='<div style="background:var(--siva-50);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;font-weight:600" id="indKopija"></div>';
   html+='<div class="vrsta zavoj" style="gap:8px;margin-bottom:16px">'+
     '<button class="gumb gumb-primarni" onclick="izvoziVarnostno()">💾 Prenesi varnostno kopijo</button>'+
+    '<button class="gumb gumb-sekundarni" onclick="oknoSifriranaKopija()">🔐 Šifrirana kopija</button>'+
     '<button class="gumb gumb-sekundarni" onclick="'+(PODPRT_FS?'odpriIzDatoteke()':'document.getElementById(\'uvozDat\').click()')+'">📂 Naloži iz datoteke</button>'+
     '</div>';
 
@@ -3259,6 +3522,20 @@ STRANI_FN.nastavitve = function(el, vrhDesno){
   }
   html+='<div class="opozorilo opo-modra" style="margin-top:14px;margin-bottom:0"><span class="ik">📌</span><div><b>Nasvet za varnost:</b> Varnostno kopijo (ali datoteko za samodejno shranjevanje) shranite v mapo, ki se sinhronizira v oblak (OneDrive, Google Drive, Dropbox). Tako so podatki varni tudi ob okvari računalnika in dostopni na drugih napravah.</div></div>';
 
+  html+='</div></div>';
+
+  // zaklepanje s PIN-om
+  html+='<div class="kartica mb16"><div class="kartica-glava"><div><h2>Zaklepanje s PIN-om</h2><div class="opis">Zaščita pred radovednimi pogledi</div></div></div><div class="kartica-telo">';
+  if(!KRIPTO_OK){
+    html+='<div class="opozorilo opo-oranzna"><span class="ik">ℹ️</span><div>Vaš brskalnik ne podpira varnega šifriranja (Web Crypto). Posodobite brskalnik ali odprite aplikacijo prek spletnega naslova (https).</div></div>';
+  }else if(pinNastavljen()){
+    html+='<div class="opozorilo opo-zelena"><span class="ik">🔒</span><div><b>PIN je nastavljen.</b> Aplikacija ob vsakem zagonu zahteva PIN. Podatki v varnostnih kopijah niso šifrirani — za to uporabite gumb "🔐 Šifrirana kopija" zgoraj.</div></div>'+
+      '<div class="vrsta zavoj" style="gap:8px"><button class="gumb gumb-sekundarni" onclick="oknoPin(\'spremeni\')">Spremeni PIN</button>'+
+      '<button class="gumb gumb-nevarno" onclick="oknoPin(\'odstrani\')">Odstrani PIN</button></div>';
+  }else{
+    html+='<div class="opozorilo opo-modra"><span class="ik">💡</span><div>Nastavite PIN in aplikacija bo ob vsakem zagonu zaklenjena. Tako podatkov o najemnikih ne more odpreti vsak, ki uporablja ta računalnik. <b>Opomba:</b> to je zaščita pred radovedneži, ne pred računalniškimi strokovnjaki — za občutljive podatke uporabljajte tudi šifrirano kopijo.</div></div>'+
+      '<button class="gumb gumb-primarni" onclick="oknoPin(\'nastavi\')">🔒 Nastavi PIN</button>';
+  }
   html+='</div></div>';
 
   // donacija
@@ -3305,6 +3582,7 @@ function uvoziVarnostno(e){
   r.onload=function(ev){
     try{
       const d=JSON.parse(ev.target.result);
+      if(d && d.sifrirano && d.podatki){ oknoDesifriraj(d); return; }   // šifrirana kopija
       if(!d.nepremicnine && !d.najemniki) throw new Error('napačna datoteka');
       potrdi('Uvozi podatke','S tem boste zamenjali vse trenutne podatke s podatki iz datoteke. Nadaljujem?', ()=>{
         P=Object.assign(JSON.parse(JSON.stringify(privzetiPodatki)), d, {nastavitve:Object.assign({},privzetiPodatki.nastavitve,d.nastavitve||{})});
@@ -3343,6 +3621,7 @@ async function odpriIzDatoteke(){
     const dat = await rocaj.getFile();
     const tekst = await dat.text();
     const d = JSON.parse(tekst);
+    if(d && d.sifrirano && d.podatki){ oknoDesifriraj(d); return; }   // šifrirana kopija – brez samodejnega shranjevanja
     if(!d.nepremicnine && !d.najemniki) throw new Error('napačna datoteka');
     potrdi('Odpri datoteko','Naložil bom podatke iz te datoteke in jih od zdaj samodejno shranjeval vanjo. Trenutni podatki bodo zamenjani. Nadaljujem?', async ()=>{
       P=Object.assign(JSON.parse(JSON.stringify(privzetiPodatki)), d, {nastavitve:Object.assign({},privzetiPodatki.nastavitve,d.nastavitve||{})});
@@ -3402,13 +3681,220 @@ function preveriVarnost(){
 }
 
 /* ============================================================
+   ZAKLEPANJE S PIN-om in ŠIFRIRANJE (Web Crypto API)
+   PIN se NE shranjuje – shrani se le njegov kriptografski prstni
+   odtis (PBKDF2 + SHA-256 s soljo), iz katerega PIN-a ni mogoče
+   razbrati. Šifrirana kopija uporablja AES-GCM 256.
+   ============================================================ */
+const PIN_KLJUC = 'upravljalec_pin_v1';
+const KRIPTO_OK = !!(window.crypto && crypto.subtle && crypto.getRandomValues);
+
+/* pomožno: ArrayBuffer <-> base64 (po kosih, varno za velike datoteke) */
+function bufVB64(buf){
+  const b=new Uint8Array(buf); let s='';
+  for(let i=0;i<b.length;i+=0x8000){ s+=String.fromCharCode.apply(null, b.subarray(i,i+0x8000)); }
+  return btoa(s);
+}
+function b64VBuf(b64){
+  const s=atob(b64), b=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) b[i]=s.charCodeAt(i);
+  return b.buffer;
+}
+
+/** izpelje ključ/odtis iz gesla (PBKDF2) */
+async function izpeljiBite(geslo, solBuf, iteracije, bitov){
+  const osnova = await crypto.subtle.importKey('raw', new TextEncoder().encode(geslo), 'PBKDF2', false, ['deriveBits']);
+  return crypto.subtle.deriveBits({name:'PBKDF2', salt:solBuf, iterations:iteracije, hash:'SHA-256'}, osnova, bitov);
+}
+
+function pinNastavljen(){ try{ return !!localStorage.getItem(PIN_KLJUC); }catch(e){ return false; } }
+
+async function shraniPinZapis(pin){
+  const sol = crypto.getRandomValues(new Uint8Array(16));
+  const it = 150000;
+  const odtis = await izpeljiBite(pin, sol, it, 256);
+  localStorage.setItem(PIN_KLJUC, JSON.stringify({sol:bufVB64(sol), it, odtis:bufVB64(odtis)}));
+}
+async function pinPravilen(pin){
+  try{
+    const z = JSON.parse(localStorage.getItem(PIN_KLJUC));
+    const odtis = await izpeljiBite(pin, new Uint8Array(b64VBuf(z.sol)), z.it, 256);
+    return bufVB64(odtis) === z.odtis;
+  }catch(e){ return false; }
+}
+
+/** ob zagonu: če je PIN nastavljen, pokaži zaklenjen zaslon in počakaj */
+let pinOdkleniRes = null;
+let pinPoskusi = 0;
+function preveriPin(){
+  return new Promise(res=>{
+    if(!pinNastavljen() || !KRIPTO_OK){ res(); return; }
+    pinOdkleniRes = res;
+    const z = document.getElementById('pinZaklep');
+    z.classList.add('viden');
+    const vnos = document.getElementById('pinVnos');
+    vnos.value=''; setTimeout(()=>vnos.focus(),150);
+    vnos.onkeydown = (e)=>{ if(e.key==='Enter') poskusiOdkleniti(); };
+  });
+}
+async function poskusiOdkleniti(){
+  const vnos = document.getElementById('pinVnos');
+  const gumb = document.getElementById('pinGumb');
+  const nap = document.getElementById('pinNapaka');
+  const pin = vnos.value.trim();
+  if(!pin) return;
+  gumb.disabled = true; nap.textContent='';
+  if(await pinPravilen(pin)){
+    document.getElementById('pinZaklep').classList.remove('viden');
+    vnos.value=''; gumb.disabled=false; pinPoskusi=0;
+    if(pinOdkleniRes){ pinOdkleniRes(); pinOdkleniRes=null; }
+  }else{
+    pinPoskusi++;
+    const cakaj = Math.min(pinPoskusi,5)*800;   // vsak zgrešen poskus malo podaljša čakanje
+    nap.textContent = 'Napačen PIN, poskusite znova.';
+    vnos.value='';
+    setTimeout(()=>{ gumb.disabled=false; vnos.focus(); }, cakaj);
+  }
+}
+
+/** nastavitev / sprememba / odstranitev PIN-a (iz Nastavitev) */
+function oknoPin(nacin){   // 'nastavi' | 'spremeni' | 'odstrani'
+  if(!KRIPTO_OK){ obvestilo('Vaš brskalnik ne podpira varnega šifriranja','napaka'); return; }
+  const sprememba = nacin!=='nastavi';
+  let telo='';
+  if(nacin==='nastavi'){
+    telo+='<div class="opozorilo opo-modra"><span class="ik">🔒</span><div>PIN prepreči, da bi kdo, ki uporablja ta računalnik, <b>po naključju ali iz radovednosti</b> odprl vaše podatke. Aplikacija bo ob vsakem zagonu zahtevala PIN.</div></div>'+
+      '<div class="opozorilo opo-oranzna"><span class="ik">⚠️</span><div><b>PIN si zapomnite!</b> Če ga pozabite, dostop ni mogoč — podatke boste lahko obnovili le iz varnostne kopije.</div></div>';
+  }
+  if(sprememba) telo+='<div class="polje"><label>Trenutni PIN</label><input id="pin_star" type="password" inputmode="numeric" maxlength="10" autocomplete="off"></div>';
+  if(nacin!=='odstrani'){
+    telo+='<div class="polje-vrsta">'+
+      '<div class="polje"><label>'+(nacin==='spremeni'?'Novi PIN':'PIN (4–10 znakov)')+'</label><input id="pin_novi" type="password" inputmode="numeric" maxlength="10" autocomplete="off"></div>'+
+      '<div class="polje"><label>Ponovite PIN</label><input id="pin_novi2" type="password" inputmode="numeric" maxlength="10" autocomplete="off"></div></div>';
+  }else{
+    telo+='<p style="font-size:13.5px;color:var(--siva-700);line-height:1.6">Z odstranitvijo PIN-a se bo aplikacija spet odpirala brez zaklepanja.</p>';
+  }
+  const napisi={nastavi:'🔒 Nastavi PIN', spremeni:'🔒 Spremeni PIN', odstrani:'🔓 Odstrani PIN'};
+  odpriModal(napisi[nacin], telo,
+    '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
+    '<button class="gumb gumb-primarni" onclick="potrdiPin(\''+nacin+'\')">'+(nacin==='odstrani'?'Odstrani':'Shrani PIN')+'</button>');
+}
+async function potrdiPin(nacin){
+  if(nacin!=='nastavi'){
+    const star=(document.getElementById('pin_star').value||'').trim();
+    if(!(await pinPravilen(star))){ obvestilo('Trenutni PIN ni pravilen','napaka'); return; }
+  }
+  if(nacin==='odstrani'){
+    localStorage.removeItem(PIN_KLJUC);
+    zapriModal(); izrisiStran(); obvestilo('PIN odstranjen','uspeh'); return;
+  }
+  const a=(document.getElementById('pin_novi').value||'').trim();
+  const b=(document.getElementById('pin_novi2').value||'').trim();
+  if(a.length<4){ obvestilo('PIN naj ima vsaj 4 znake','napaka'); return; }
+  if(a!==b){ obvestilo('PIN-a se ne ujemata','napaka'); return; }
+  await shraniPinZapis(a);
+  zapriModal(); izrisiStran();
+  obvestilo('PIN nastavljen — velja ob naslednjem zagonu','uspeh');
+}
+
+/* ---------- šifrirana varnostna kopija (AES-GCM 256) ---------- */
+async function sifrirajPodatke(obj, geslo){
+  const sol = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const it = 150000;
+  const kljucBiti = await izpeljiBite(geslo, sol, it, 256);
+  const kljuc = await crypto.subtle.importKey('raw', kljucBiti, 'AES-GCM', false, ['encrypt']);
+  const sifrirano = await crypto.subtle.encrypt({name:'AES-GCM', iv}, kljuc, new TextEncoder().encode(JSON.stringify(obj)));
+  return { program:'upravljalec-nepremicnin', sifrirano:true, verzija:1, it,
+           sol:bufVB64(sol), iv:bufVB64(iv), podatki:bufVB64(sifrirano) };
+}
+async function desifrirajPodatke(ovoj, geslo){
+  const kljucBiti = await izpeljiBite(geslo, new Uint8Array(b64VBuf(ovoj.sol)), ovoj.it||150000, 256);
+  const kljuc = await crypto.subtle.importKey('raw', kljucBiti, 'AES-GCM', false, ['decrypt']);
+  const cisto = await crypto.subtle.decrypt({name:'AES-GCM', iv:new Uint8Array(b64VBuf(ovoj.iv))}, kljuc, b64VBuf(ovoj.podatki));
+  return JSON.parse(new TextDecoder().decode(cisto));
+}
+
+function oknoSifriranaKopija(){
+  if(!KRIPTO_OK){ obvestilo('Vaš brskalnik ne podpira varnega šifriranja','napaka'); return; }
+  odpriModal('🔐 Šifrirana varnostna kopija',
+    '<div class="opozorilo opo-modra"><span class="ik">🔐</span><div>Kopija bo <b>šifrirana z geslom</b> (AES-256). Primerno za shranjevanje v oblak (OneDrive, Google Drive ...) — brez gesla je vsebine nemogoče prebrati.</div></div>'+
+    '<div class="opozorilo opo-oranzna"><span class="ik">⚠️</span><div><b>Geslo si zapomnite!</b> Pozabljenega gesla ni mogoče obnoviti in kopija bo neuporabna.</div></div>'+
+    '<div class="polje-vrsta"><div class="polje"><label>Geslo (vsaj 6 znakov)</label><input id="sif_geslo" type="password" autocomplete="off"></div>'+
+    '<div class="polje"><label>Ponovite geslo</label><input id="sif_geslo2" type="password" autocomplete="off"></div></div>',
+    '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
+    '<button class="gumb gumb-primarni" onclick="izvoziSifrirano()">🔐 Prenesi šifrirano kopijo</button>');
+}
+async function izvoziSifrirano(){
+  const a=document.getElementById('sif_geslo').value, b=document.getElementById('sif_geslo2').value;
+  if(a.length<6){ obvestilo('Geslo naj ima vsaj 6 znakov','napaka'); return; }
+  if(a!==b){ obvestilo('Gesli se ne ujemata','napaka'); return; }
+  try{
+    const ovoj = await sifrirajPodatke(P, a);
+    prenesiDatoteko('upravljalec-nepremicnin-sifrirano-'+danesISO()+'.json', JSON.stringify(ovoj), 'application/json');
+    P.nastavitve.zadnjaKopija = new Date().toISOString();
+    P.nastavitve.stSprememb = 0;
+    shrani(); zapriModal(); osveziIndikatorKopije();
+    obvestilo('Šifrirana kopija prenesena','uspeh');
+  }catch(e){ obvestilo('Šifriranje ni uspelo','napaka'); }
+}
+
+/** uvoz šifrirane kopije – vpraša za geslo */
+function oknoDesifriraj(ovoj){
+  odpriModal('🔐 Šifrirana kopija',
+    '<p style="font-size:13.5px;color:var(--siva-700);margin-bottom:14px">Ta varnostna kopija je šifrirana. Vnesite geslo, s katerim je bila ustvarjena.</p>'+
+    '<div class="polje"><label>Geslo</label><input id="des_geslo" type="password" autocomplete="off"></div>',
+    '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
+    '<button class="gumb gumb-primarni" id="des_gumb">Odšifriraj in uvozi</button>');
+  document.getElementById('des_gumb').onclick = async ()=>{
+    try{
+      const d = await desifrirajPodatke(ovoj, document.getElementById('des_geslo').value);
+      if(!d.nepremicnine && !d.najemniki) throw new Error('vsebina');
+      P = Object.assign(JSON.parse(JSON.stringify(privzetiPodatki)), d, {nastavitve:Object.assign({},privzetiPodatki.nastavitve,d.nastavitve||{})});
+      shrani(); zapriModal(); pojdi('nadzor'); obvestilo('Šifrirani podatki uvoženi','uspeh');
+    }catch(e){ obvestilo('Napačno geslo ali poškodovana datoteka','napaka'); }
+  };
+  setTimeout(()=>document.getElementById('des_geslo').focus(),150);
+}
+
+/* ============================================================
+   PWA — registracija service workerja (namestitev kot aplikacija,
+   delovanje brez interneta). Deluje le prek http(s), ne iz datoteke.
+   ============================================================ */
+function registrirajPWA(){
+  if(!('serviceWorker' in navigator)) return;
+  if(location.protocol!=='https:' && location.hostname!=='localhost' && location.hostname!=='127.0.0.1') return;
+  navigator.serviceWorker.register('sw.js').catch(()=>{ /* tiho – aplikacija deluje tudi brez */ });
+}
+
+/* namig za namestitev na napravo (Chrome/Edge sprožita dogodek) */
+let pwaPoziv = null;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  pwaPoziv = e;
+  const gumb = document.getElementById('gumbNamestiPWA');
+  if(gumb) gumb.style.display='flex';
+});
+function namestiPWA(){
+  if(!pwaPoziv){ obvestilo('Namestitev tu ni na voljo – odprite stran v Chrome/Edge','napaka'); return; }
+  pwaPoziv.prompt();
+  pwaPoziv.userChoice.then(izid=>{
+    if(izid.outcome==='accepted'){ obvestilo('Aplikacija nameščena 🎉','uspeh'); const g=document.getElementById('gumbNamestiPWA'); if(g) g.style.display='none'; }
+    pwaPoziv = null;
+  });
+}
+
+/* ============================================================
    ZAGON
    ============================================================ */
 uporabiTemo();
-izrisiMeni();
-izrisiStran();
-preveriGdpr();
-preveriVarnost();
+registrirajPWA();
+preveriPin().then(()=>{
+  izrisiMeni();
+  izrisiStran();
+  preveriGdpr();
+  preveriVarnost();
+});
 
 </script>
 </body>
