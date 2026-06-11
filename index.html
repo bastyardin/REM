@@ -339,7 +339,9 @@ tbody tr:hover{background:var(--siva-50)}
 @media(max-width:760px){
   .stranica{display:none}
   .tabbar{display:block}
-  .vsebina{padding:16px 16px calc(24px + var(--tabbar-v))}
+  .vsebina{padding:16px 16px calc(24px + var(--tabbar-v));overflow-x:hidden}
+  .nadzor-mreza{grid-template-columns:1fr!important}
+  .g2v{display:none}
   .vrh{padding:12px 16px;flex-wrap:wrap;row-gap:8px}
   .vrh h1{font-size:19px}
   .vrh .podnaslov{display:none}
