@@ -318,12 +318,22 @@ tbody tr:hover{background:var(--siva-50)}
 .segment button{padding:7px 14px;border-radius:8.5px;font-size:12.5px;font-weight:600;color:var(--siva-500);transition:all .15s}
 .segment button.aktiven{background:#fff;color:var(--siva-900);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
-.graf-ovoj{display:flex;align-items:flex-end;gap:10px;height:180px;padding:10px 0}
-.graf-stolpec{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
-.graf-stolpec .palica{width:100%;max-width:38px;background:var(--modra);border-radius:6px 6px 0 0;transition:height .5s;min-height:3px;position:relative;opacity:.92}
-.graf-stolpec .palica:hover{opacity:1}
-.graf-stolpec .oznaka{font-size:10.5px;color:var(--siva-400);font-weight:600}
-.graf-stolpec .znesek{font-size:10px;color:var(--siva-500);font-weight:700}
+/* SVG ikone, ki nadomeščajo emojije v vsebini (1em = prilagodijo se pisavi) */
+.ikona-e{width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex-shrink:0}
+
+/* ===== GRAF (stolpci z mrežo) ===== */
+.graf2{margin-top:4px}
+.graf2-platno{position:relative;border-bottom:1px solid var(--siva-200)}
+.graf2-crta{position:absolute;left:0;right:0;border-top:1px dashed var(--siva-200);pointer-events:none}
+.graf2-crta span{position:absolute;right:0;top:-15px;font-size:9.5px;color:var(--siva-400);font-weight:600}
+.graf2-vrstica{position:absolute;inset:0;display:flex;align-items:flex-end;gap:6px}
+.g2s{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.g2v{font-size:9.5px;font-weight:600;color:var(--siva-500);line-height:1;margin-bottom:3px;white-space:nowrap}
+.g2p{width:100%;max-width:36px;border-radius:5px 5px 0 0;background:var(--modra);min-height:2px;transition:height .4s}
+.g2p:hover{filter:brightness(1.12)}
+.graf2-noga{display:flex;gap:6px;margin-top:6px}
+.g2o{flex:1;text-align:center;font-size:10.5px;color:var(--siva-400);font-weight:600;min-width:0;line-height:1.3}
+.g2o small{display:block;font-size:9px;font-weight:600}
 
 /* ===== TELEFON: tab vrstica namesto stranskega menija ===== */
 @media(max-width:760px){
@@ -344,10 +354,16 @@ tbody tr:hover{background:var(--siva-50)}
   .modal-noga{border-radius:0}
   .modal-telo{max-height:60vh}
 }
+/* ===== VELIKI ZASLONI: aplikacija raste z zaslonom ===== */
+@media(min-width:1440px){ body{zoom:1.1} .vsebina{max-width:1320px} }
+@media(min-width:1720px){ body{zoom:1.22} }
+@media(min-width:2100px){ body{zoom:1.35} }
+@media(min-width:2600px){ body{zoom:1.5} }
+
 @media print{
   .stranica,.vrh-desno,.mobilni-meni,.tabbar,.no-print{display:none!important}
   .vsebina{padding:0;max-width:100%}
-  body{background:#fff}
+  body{background:#fff;zoom:1}
 }
 
 /* GDPR pasica */
@@ -697,6 +713,7 @@ function obvestilo(tekst, vrsta){
   const ik = vrsta==='uspeh'?'✓':vrsta==='napaka'?'⚠':'ℹ';
   t.innerHTML = '<span class="ik">'+ik+'</span><span>'+escHTML(tekst)+'</span>';
   ov.appendChild(t);
+  zamenjajEmojiIkone(t);
   setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(40px)'; t.style.transition='all .25s'; setTimeout(()=>t.remove(),250); }, 2800);
 }
 
@@ -723,6 +740,7 @@ function odpriModal(naslov, telo, noga, sirok){
   document.getElementById('modalNoga').innerHTML = noga || '';
   document.getElementById('modalOkno').className = 'modal' + (sirok?' sirok':'');
   document.getElementById('modalOzadje').classList.add('odprt');
+  zamenjajEmojiIkone(document.getElementById('modalOkno'));
   osveziZapahOzadja();
 }
 function zapriModal(){ document.getElementById('modalOzadje').classList.remove('odprt'); osveziZapahOzadja(); }
@@ -772,6 +790,135 @@ function svgIkona(id){
   };
   if(id==='vec') return '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/></svg>';
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(POTI[id]||POTI.nadzor)+'</svg>';
+}
+
+/* ---------- SVG ikone namesto emojijev v vsebini ----------
+   Emojije v izrisanem besedilu samodejno zamenjamo z enobarvnimi
+   SVG ikonami (velikost 1em — prilagodijo se okoliški pisavi). */
+const EMOJI_IKONE = {
+  '🗑':'<path d="M5 7h14"/><path d="M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7"/><path d="M6.5 7l.8 12.1a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/><path d="M10 11v5.5M14 11v5.5"/>',
+  '✏':'<path d="M4 20l1-4L16.5 4.5a2.12 2.12 0 0 1 3 3L8 19l-4 1z"/><path d="M14.5 6.5l3 3"/>',
+  '💡':'<path d="M12 3.5a5.5 5.5 0 0 1 3.2 9.9c-.6.5-1 1.1-1.1 1.8h-4.2c-.1-.7-.5-1.3-1.1-1.8A5.5 5.5 0 0 1 12 3.5z"/><path d="M10 18.2h4"/><path d="M10.8 20.8h2.4"/>',
+  '✓':'<path d="M5 12.5l4.5 4.5L19 7" stroke-width="2.2"/>',
+  '✅':'<circle cx="12" cy="12" r="8.6"/><path d="M8.5 12.5l2.5 2.5 4.5-5.5"/>',
+  '📋':'<path d="M9 5H7.5A1.5 1.5 0 0 0 6 6.5v13A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16.5 5H15"/><rect x="9" y="3.2" width="6" height="3.6" rx="1.2"/><path d="M9.5 11.5h5M9.5 15h5"/>',
+  '⚠':'<path d="M10.7 5.2L3.8 17.5a1.5 1.5 0 0 0 1.3 2.3h13.8a1.5 1.5 0 0 0 1.3-2.3L13.3 5.2a1.5 1.5 0 0 0-2.6 0z"/><path d="M12 10v4"/><path d="M12 16.8h.01"/>',
+  'ℹ':'<circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5"/><path d="M12 7.8h.01"/>',
+  '🛏':'<path d="M3 7v12"/><path d="M3 16h18v3"/><path d="M21 16v-3a3.5 3.5 0 0 0-3.5-3.5H11V16"/><circle cx="7" cy="11.5" r="1.7"/>',
+  '🏢':'<rect x="5.5" y="4" width="13" height="16" rx="1.4"/><path d="M9 8h2m2 0h2M9 12h2m2 0h2M9 16h2m2 0h2"/><path d="M3.5 20h17"/>',
+  '💶':'<rect x="3" y="6.5" width="18" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6.3 9.8h.01M17.7 14.2h.01"/>',
+  '🧾':'<path d="M6.5 3.5h11V20l-2.75-1.8L12 20l-2.75-1.8L6.5 20z"/><path d="M9.5 8h5M9.5 11.5h5"/>',
+  '👥':'<circle cx="9" cy="8.5" r="3.2"/><path d="M3.8 19.5c.5-3 2.6-4.8 5.2-4.8s4.7 1.8 5.2 4.8"/><path d="M15.4 5.7a3.2 3.2 0 1 1 .7 6.2"/><path d="M16.4 14.9c2.3.4 3.8 2.1 4.2 4.6"/>',
+  '👤':'<circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 20c.7-3.6 3.2-5.5 6.5-5.5s5.8 1.9 6.5 5.5"/>',
+  '📈':'<path d="M4 17l5.5-5.5 3.5 3.5L20 8"/><path d="M15.5 8H20v4.5"/>',
+  '📉':'<path d="M4 7l5.5 5.5L13 9l7 7"/><path d="M15.5 16H20v-4.5"/>',
+  '📊':'<path d="M4 19.5h16"/><rect x="5.5" y="11" width="3.4" height="6" rx=".9"/><rect x="10.3" y="6.5" width="3.4" height="10.5" rx=".9"/><rect x="15.1" y="13" width="3.4" height="4" rx=".9"/>',
+  '🖨':'<path d="M7 9V4h10v5"/><path d="M7 16.5H5.5A1.5 1.5 0 0 1 4 15v-4.5A1.5 1.5 0 0 1 5.5 9h13A1.5 1.5 0 0 1 20 10.5V15a1.5 1.5 0 0 1-1.5 1.5H17"/><rect x="7" y="13.5" width="10" height="6.5" rx="1"/>',
+  '📄':'<path d="M13.5 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V8z"/><path d="M13.5 3.5V8H18"/>',
+  '📜':'<path d="M13.5 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V8z"/><path d="M13.5 3.5V8H18"/><path d="M9 12.5h6M9 16h6"/>',
+  '📝':'<path d="M13.5 3.5H7.5A1.5 1.5 0 0 0 6 5v14a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V8z"/><path d="M13.5 3.5V8H18"/><path d="M9 12.5h6M9 16h3.5"/>',
+  '🔐':'<rect x="5.5" y="10.5" width="13" height="9" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><path d="M12 14v2"/>',
+  '🔒':'<rect x="5.5" y="10.5" width="13" height="9" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><path d="M12 14v2"/>',
+  '🔑':'<circle cx="8" cy="15.5" r="4"/><path d="M10.8 12.7L20 3.5"/><path d="M16.5 7L19 9.5M14 9.5l2 2"/>',
+  '🛡':'<path d="M12 3.5l7 2.5v5.5c0 4.4-2.9 7.6-7 9-4.1-1.4-7-4.6-7-9V6z"/>',
+  '🏠':'<path d="M5 12l7-7 7 7"/><path d="M7 10v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9"/><path d="M10 20v-5h4v5"/>',
+  '✉':'<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4.5 7.5l7.5 5.5 7.5-5.5"/>',
+  '💰':'<circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.7a3.1 3.1 0 1 0 0 4.6"/><path d="M8 11h4.2M8 13h4.2"/>',
+  '📁':'<path d="M4 7a2 2 0 0 1 2-2h3.5l2 2H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>',
+  '📦':'<path d="M12 3.5l8 4v9l-8 4-8-4v-9z"/><path d="M4 7.5l8 4 8-4M12 11.5V20"/>',
+  '⚡':'<path d="M13 3L5.5 13.5h5L11 21l7.5-10.5h-5z"/>',
+  '🔔':'<path d="M12 4a5 5 0 0 1 5 5v3.5l1.5 2.8a.8.8 0 0 1-.7 1.2H6.2a.8.8 0 0 1-.7-1.2L7 12.5V9a5 5 0 0 1 5-5z"/><path d="M10 19.5a2 2 0 0 0 4 0"/>',
+  '🔍':'<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+  '💧':'<path d="M12 3.5s5.5 6 5.5 10a5.5 5.5 0 0 1-11 0c0-4 5.5-10 5.5-10z"/>',
+  '🔥':'<path d="M12 3.5c1 2.5 3 4 4.5 6a6.5 6.5 0 1 1-10.6 5c0-2 1-3.6 2.1-5 .3 1 .8 1.8 1.8 2.3C9.5 9 10.5 6 12 3.5z"/>',
+  '📥':'<path d="M12 14V4m0 0L8.5 7.5M12 4l3.5 3.5"/><path d="M5 17v1.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V17"/>',
+  '📎':'<path d="M8.5 12l6-6a3.2 3.2 0 0 1 4.5 4.5L11.5 18a5 5 0 0 1-7-7l7-7"/>',
+  '💾':'<path d="M12 4v10m0 0l-3.5-3.5M12 14l3.5-3.5"/><path d="M5 17v1.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V17"/>',
+  '🏛':'<path d="M4 9.5L12 4.5l8 5"/><path d="M5.5 10v7.5M10 10v7.5M14 10v7.5M18.5 10v7.5"/><path d="M4 17.5h16M4 20h16"/>',
+  '🏦':'<path d="M4 9.5L12 4.5l8 5"/><path d="M5.5 10v7.5M10 10v7.5M14 10v7.5M18.5 10v7.5"/><path d="M4 17.5h16M4 20h16"/>',
+  '🧪':'<path d="M10 3.5h4"/><path d="M10.8 3.5v5.2L5.6 18a2 2 0 0 0 1.8 3h9.2a2 2 0 0 0 1.8-3l-5.2-9.3V3.5"/><path d="M7.5 15h9"/>',
+  '🌙':'<path d="M20 13.2A8.2 8.2 0 1 1 10.8 4a6.6 6.6 0 0 0 9.2 9.2z"/>',
+  '📱':'<rect x="7" y="3" width="10" height="18" rx="2.2"/><path d="M11 18h2"/>',
+  '💻':'<rect x="4.5" y="5.5" width="15" height="9.5" rx="1.5"/><path d="M3 19h18"/>',
+  '📆':'<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10h16"/><path d="M8.5 3.5V7M15.5 3.5V7"/>',
+  '📅':'<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10h16"/><path d="M8.5 3.5V7M15.5 3.5V7"/>',
+  '🗓':'<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10h16"/><path d="M8.5 3.5V7M15.5 3.5V7"/>',
+  '📞':'<path d="M5 4.5h3.5L10 9l-2 1.5a11 11 0 0 0 5.5 5.5L15 14l4.5 1.5V19a1.5 1.5 0 0 1-1.6 1.5C10.5 19.9 4.1 13.5 3.5 6.1A1.5 1.5 0 0 1 5 4.5z"/>',
+  '↩':'<path d="M9 13.5L4.5 9.5 9 5.5"/><path d="M4.5 9.5H14a4.5 4.5 0 0 1 0 9H9.5"/>',
+  '📌':'<path d="M12 20.5s-6.5-5.5-6.5-10a6.5 6.5 0 0 1 13 0c0 4.5-6.5 10-6.5 10z"/><circle cx="12" cy="10.5" r="2.2"/>',
+  '📍':'<path d="M12 20.5s-6.5-5.5-6.5-10a6.5 6.5 0 0 1 13 0c0 4.5-6.5 10-6.5 10z"/><circle cx="12" cy="10.5" r="2.2"/>',
+  '❤':'<path d="M12 19.5s-7-4.4-7-9.5a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.1-7 9.5-7 9.5z"/>',
+  '🤝':'<path d="M12 19.5s-7-4.4-7-9.5a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.1-7 9.5-7 9.5z"/>',
+  '❓':'<circle cx="12" cy="12" r="8.6"/><path d="M9.8 9.4a2.3 2.3 0 1 1 3.3 2.1c-.8.4-1.1.9-1.1 1.8"/><path d="M12 16.4h.01"/>',
+  '⚙':'<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="2.7"/>',
+  '📷':'<path d="M8.5 6.5L10 4.5h4l1.5 2H19A1.5 1.5 0 0 1 20.5 8v9.5A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5V8A1.5 1.5 0 0 1 5 6.5z"/><circle cx="12" cy="12.5" r="3.2"/>',
+  '🔧':'<path d="M14.5 6.4a4.2 4.2 0 0 0-5.6 5.2l-4.7 4.7a2 2 0 1 0 2.9 2.9l4.7-4.7a4.2 4.2 0 0 0 5.2-5.6l-2.8 2.8-2.5-2.5z"/>',
+  '📶':'<path d="M5 18.5v-2.5M9.5 18.5v-5.5M14 18.5v-8.5M18.5 18.5V6.5"/>',
+  '🏷':'<path d="M4 11V5.5A1.5 1.5 0 0 1 5.5 4H11l8.5 8.5a1.8 1.8 0 0 1 0 2.6L15.1 19.6a1.8 1.8 0 0 1-2.6 0z"/><path d="M8 8h.01"/>',
+  '🍎':'<path d="M15.8 7.2c-1.6-.2-2.6.9-3.8.9s-2-1-3.5-.9C6.3 7.3 4.5 9.2 4.5 12.4c0 3.7 2.6 8.1 4.7 8.1.9 0 1.4-.6 2.8-.6s1.8.6 2.8.6c2.1 0 4.7-4.4 4.7-8.1 0-2.2-1.1-3.8-2.5-4.6"/><path d="M12 7c-.1-1.8 1.2-3.3 3-3.5.1 1.8-1.3 3.4-3 3.5z"/>',
+  '🤖':'<rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4.8"/><circle cx="12" cy="4" r=".8"/><path d="M9 12.5h.01M15 12.5h.01"/><path d="M9.5 16h5"/>',
+  '🎨':'<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 2-.8 2-1.8 0-.6-.3-1-.6-1.4-.3-.4-.6-.8-.6-1.4 0-1 .8-1.8 2-1.8h1.7a4 4 0 0 0 4-4c0-3.7-3.8-6.6-8.5-6.6z"/><path d="M7.5 10.5h.01M12 7.5h.01M16.5 10.5h.01"/>'
+};
+const EMOJI_TEST = new RegExp('['+Object.keys(EMOJI_IKONE).join('')+']', 'u');
+const EMOJI_GLOB = new RegExp('(['+Object.keys(EMOJI_IKONE).join('')+'])️?', 'gu');
+
+function emojiVIkono(ch){
+  const pot = EMOJI_IKONE[ch];
+  if(!pot) return null;
+  return '<svg class="ikona-e" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+pot+'</svg>';
+}
+
+/** v izrisanem delu strani zamenja emojije z SVG ikonami (samo v besedilu,
+    ne v <option>, <textarea> ali atributih) */
+function zamenjajEmojiIkone(koren){
+  if(!koren || !window.TreeWalker) return;
+  const w = document.createTreeWalker(koren, NodeFilter.SHOW_TEXT, null);
+  const zaZamenjavo = [];
+  let n;
+  while((n = w.nextNode())){
+    if(!n.nodeValue || !EMOJI_TEST.test(n.nodeValue)) continue;
+    const p = n.parentNode;
+    if(!p) continue;
+    const tag = p.nodeName;
+    if(tag==='OPTION' || tag==='TEXTAREA' || tag==='SCRIPT' || tag==='STYLE' || tag==='TITLE') continue;
+    if(p.closest && p.closest('svg')) continue;
+    zaZamenjavo.push(n);
+  }
+  zaZamenjavo.forEach(tn=>{
+    const span = document.createElement('span');
+    span.innerHTML = escHTML(tn.nodeValue).replace(EMOJI_GLOB, (cel, osnova)=> emojiVIkono(osnova) || cel);
+    const frag = document.createDocumentFragment();
+    while(span.firstChild) frag.appendChild(span.firstChild);
+    tn.parentNode.replaceChild(frag, tn);
+  });
+}
+
+/* ---------- GRAF (stolpci z mrežo in vrednostmi) ---------- */
+function grafStolpci(podatki, opts){
+  opts = opts || {};
+  const visina = opts.visina || 170;
+  const plotV = visina - 18;   // prostor za vrednost nad stolpcem
+  const max = Math.max(1, ...podatki.map(p=>Math.abs(Number(p.vrednost)||0)));
+  const fmt = opts.format || (v=>stevilka(Math.round(v)));
+  let h = '<div class="graf2">';
+  h += '<div class="graf2-platno" style="height:'+visina+'px">';
+  h += '<div class="graf2-crta" style="bottom:'+plotV+'px"><span>'+fmt(max)+'</span></div>';
+  h += '<div class="graf2-crta" style="bottom:'+Math.round(plotV/2)+'px"><span>'+fmt(max/2)+'</span></div>';
+  h += '<div class="graf2-vrstica">';
+  podatki.forEach(p=>{
+    const v = Math.max(0, Number(p.vrednost)||0);
+    const vis = Math.round(v/max*plotV);
+    h += '<div class="g2s" title="'+escHTML(p.naslov||'')+'">'+
+      (p.vrh!=null && p.vrh!=='' ? '<div class="g2v">'+p.vrh+'</div>' : '')+
+      '<div class="g2p" style="height:'+Math.max(2,vis)+'px'+(p.barva?';background:'+p.barva:'')+'"></div></div>';
+  });
+  h += '</div></div>';
+  h += '<div class="graf2-noga">';
+  podatki.forEach(p=>{
+    h += '<div class="g2o">'+p.oznaka+(p.pod ? '<small style="color:'+(p.podBarva||'var(--siva-400)')+'">'+p.pod+'</small>' : '')+'</div>';
+  });
+  h += '</div></div>';
+  return h;
 }
 
 /* zavihki v spodnji tab vrstici (telefon) */
@@ -894,6 +1041,8 @@ function izrisiStran(){
   vrhDesno.innerHTML='';
   const fn = STRANI_FN[trenutnaStran];
   if(fn) fn(vsebina, vrhDesno);
+  zamenjajEmojiIkone(vsebina);
+  zamenjajEmojiIkone(vrhDesno);
 }
 
 /* Funkcije strani – zapolnimo v naslednjih korakih */
@@ -1163,7 +1312,15 @@ STRANI_FN.nadzor = function(el, vrhDesno){
   // zapadle najemnine opozorilo
   if(zapadli.length>0){
     html+='<div class="opozorilo opo-rdeca"><span class="ik">🔔</span><div><b>'+zapadli.length+' neplačanih najemnin</b> v skupni vrednosti '+evro(zapadliZnesek())+'. '+
-      '<a href="#" onclick="pojdi(\'placila\');return false" style="color:#991b1b;text-decoration:underline">Poglej podrobnosti →</a></div></div>';
+      '<a href="#" onclick="pojdi(\'placila\');return false" style="color:inherit;text-decoration:underline">Poglej podrobnosti →</a></div></div>';
+  }
+
+  // opomnik za varnostno kopijo (30+ sprememb od zadnje kopije, brez samodejnega shranjevanja)
+  const stSpr = Number(P.nastavitve.stSprememb)||0;
+  if(stSpr>=30 && !datotekaRocaj){
+    html+='<div class="opozorilo opo-oranzna"><span class="ik">💾</span><div class="vrsta med zavoj" style="flex:1;gap:10px">'+
+      '<div><b>'+stSpr+' sprememb od zadnje varnostne kopije'+(P.nastavitve.zadnjaKopija?' ('+datumSlo(P.nastavitve.zadnjaKopija)+')':'')+'.</b> Priporočamo izvoz podatkov, da jih ne izgubite.</div>'+
+      '<button class="gumb gumb-mini gumb-sekundarni" onclick="izvoziVarnostno()" style="flex-shrink:0">💾 Izvozi zdaj</button></div></div>';
   }
 
   // opozorila za poteke
@@ -1195,15 +1352,12 @@ STRANI_FN.nadzor = function(el, vrhDesno){
   const mp = mesecniPrihodki();
   const maxP = Math.max(...mp.map(x=>x.znesek), 1);
   html+='<div class="kartica"><div class="kartica-glava"><div><h2>Prihodki po mesecih</h2><div class="opis">Prejete najemnine v zadnjih 12 mesecih</div></div></div><div class="kartica-telo">';
-  html+='<div class="graf-ovoj">';
-  mp.forEach(m=>{
-    const v = Math.round(m.znesek/maxP*100);
-    html+='<div class="graf-stolpec" title="'+m.oznaka+': '+evro(m.znesek)+'">'+
-      '<span class="znesek">'+(m.znesek>0?evro0(m.znesek):'')+'</span>'+
-      '<div class="palica" style="height:'+v+'%"></div>'+
-      '<span class="oznaka">'+m.oznaka+'</span></div>';
-  });
-  html+='</div></div></div>';
+  html+=grafStolpci(mp.map(m=>({
+    oznaka:m.oznaka, vrednost:m.znesek,
+    naslov:m.oznaka+': '+evro(m.znesek),
+    vrh:(m.znesek>0?evro0(m.znesek):'')
+  })), {format:evro0});
+  html+='</div></div>';
 
   // pravne obveznosti / roki
   html+='<div class="kartica"><div class="kartica-glava"><div><h2>Pomembni roki</h2><div class="opis">Davčne obveznosti</div></div></div><div class="kartica-telo">';
@@ -1229,8 +1383,8 @@ STRANI_FN.nadzor = function(el, vrhDesno){
       const trend = x.dobicek>=0 ? 'var(--zelena)' : 'var(--rdeca)';
       html+='<div style="flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end">'+
         '<div style="display:flex;gap:6px;align-items:flex-end;width:100%;justify-content:center;height:100%">'+
-          '<div title="Prihodki '+x.leto+': '+evro(x.prihodki)+'" style="width:40%;max-width:42px;background:linear-gradient(to top,var(--modra),#60a5fa);border-radius:6px 6px 0 0;height:'+hP+'%;min-height:3px;position:relative"><span style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;white-space:nowrap;color:var(--modra)">'+evro0(x.prihodki)+'</span></div>'+
-          '<div title="Dobiček '+x.leto+': '+evro(x.dobicek)+'" style="width:40%;max-width:42px;background:linear-gradient(to top,'+trend+',#86efac);border-radius:6px 6px 0 0;height:'+hD+'%;min-height:3px"></div>'+
+          '<div title="Prihodki '+x.leto+': '+evro(x.prihodki)+'" style="width:40%;max-width:42px;background:var(--modra);border-radius:5px 5px 0 0;height:'+hP+'%;min-height:3px;position:relative"><span style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;white-space:nowrap;color:var(--modra)">'+evro0(x.prihodki)+'</span></div>'+
+          '<div title="Dobiček '+x.leto+': '+evro(x.dobicek)+'" style="width:40%;max-width:42px;background:'+trend+';border-radius:5px 5px 0 0;height:'+hD+'%;min-height:3px"></div>'+
         '</div>'+
         '<div style="font-size:13px;font-weight:700;margin-top:10px">'+x.leto+'</div>'+
         '<div class="txt-mini '+(x.dobicek>=0?'zelen':'rdec')+'" style="font-weight:600">'+evro0(x.dobicek)+' dobiček</div></div>';
@@ -2858,23 +3012,20 @@ function statistikaOddajanja(leto){
   const kraticeMes = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Avg','Sep','Okt','Nov','Dec'];
 
   html+='<div class="kartica mb16"><div class="kartica-glava"><h2>📊 Zasedenost in prihodek po mesecih</h2></div><div class="kartica-telo">';
-  html+='<div style="display:flex;align-items:flex-end;gap:6px;height:180px;padding:8px 0 0">';
-  meseci.forEach((m,mi)=>{
-    const vis = Math.round(m.noci/maxNoci*150);
+  html+=grafStolpci(meseci.map((m,mi)=>{
     const zas = m.dniRazpolozljivi>0 ? Math.round(m.noci/m.dniRazpolozljivi*100) : 0;
-    const barva = zas>=60?'#34d399':zas>=35?'#fbbf24':zas>0?'#f87171':'#e2e8f0';
-    html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">'+
-      '<div class="txt-mini txt-mute" style="font-size:9px;line-height:1">'+(m.noci>0?m.noci:'')+'</div>'+
-      '<div title="'+kraticeMes[mi]+': '+m.noci+' noči, '+zas+'% zasedenost, '+evro0(m.prihodek)+'" style="width:100%;max-width:34px;height:'+Math.max(2,vis)+'px;background:'+barva+';border-radius:4px 4px 0 0;transition:height .3s"></div>'+
-      '<div class="txt-mini txt-mute" style="font-size:10px">'+kraticeMes[mi]+'</div>'+
-      '<div class="txt-mini" style="font-size:9px;color:'+(zas>0?barva:'#cbd5e1')+';font-weight:600">'+(zas>0?zas+'%':'')+'</div>'+
-      '</div>';
-  });
-  html+='</div>';
-  html+='<div class="vrsta" style="gap:16px;margin-top:10px;flex-wrap:wrap" class="txt-mini">'+
-    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#34d399"></span>≥60% dobra</span>'+
-    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#fbbf24"></span>35–59% srednja</span>'+
-    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#f87171"></span>&lt;35% nizka</span>'+
+    const barva = zas>=60?'var(--zelena)':zas>=35?'var(--oranzna)':zas>0?'var(--rdeca)':'var(--siva-200)';
+    return {
+      oznaka:kraticeMes[mi], vrednost:m.noci, barva:barva,
+      naslov:kraticeMes[mi]+': '+m.noci+' noči, '+zas+'% zasedenost, '+evro0(m.prihodek),
+      vrh:(m.noci>0?m.noci:''),
+      pod:(zas>0?zas+'%':''), podBarva:barva
+    };
+  }), {format:v=>Math.round(v)});
+  html+='<div class="vrsta" style="gap:16px;margin-top:12px;flex-wrap:wrap">'+
+    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:var(--zelena)"></span>≥60% dobra</span>'+
+    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:var(--oranzna)"></span>35–59% srednja</span>'+
+    '<span class="txt-mini vrsta" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:var(--rdeca)"></span>&lt;35% nizka</span>'+
     '<span class="txt-mini txt-mute" style="margin-left:auto">Številka nad stolpcem = št. zasedenih noči</span></div>';
   html+='</div></div>';
 
