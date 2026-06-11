@@ -3,7 +3,7 @@
    Ob spremembi aplikacije povečajte številko VERZIJA spodaj,
    da brskalniki prenesejo svežo kopijo.
    ============================================================ */
-const VERZIJA = 'v4';
+const VERZIJA = 'v5';
 const PREDPOMNILNIK = 'upravljalec-nepremicnin-' + VERZIJA;
 
 /* datoteke, ki sestavljajo aplikacijo (app shell) */
@@ -15,14 +15,18 @@ const DATOTEKE = [
   './ikona-512.png'
 ];
 
-/* ob namestitvi: shrani vse datoteke v predpomnilnik */
+/* ob namestitvi: shrani vse datoteke v predpomnilnik
+   (cache:'reload' obide HTTP predpomnilnik — GitHub Pages sicer
+   do 10 minut vrača staro kopijo) */
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(PREDPOMNILNIK).then((c) => c.addAll(DATOTEKE)).then(() => self.skipWaiting())
+    caches.open(PREDPOMNILNIK)
+      .then((c) => c.addAll(DATOTEKE.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
 });
 
-/* ob aktivaciji: počisti stare verzije predpomnilnika */
+/* ob aktivaciji: počisti stare verzije predpomnilnika in takoj prevzemi nadzor */
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((kljuci) =>
@@ -32,7 +36,8 @@ self.addEventListener('activate', (e) => {
 });
 
 /* strategija:
-   - datoteke aplikacije: najprej omrežje (sveža verzija), ob izpadu predpomnilnik
+   - datoteke aplikacije: najprej omrežje BREZ HTTP predpomnilnika (vedno sveža
+     verzija), ob izpadu interneta shranjena kopija
    - knjižnice s cdnjs (npr. za PDF): najprej predpomnilnik, sicer omrežje + shrani
    - vse ostalo (analitika ipd.): pusti brskalniku */
 self.addEventListener('fetch', (e) => {
@@ -57,10 +62,12 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request.url, { cache: 'no-store' })
       .then((odg) => {
-        const kopija = odg.clone();
-        caches.open(PREDPOMNILNIK).then((c) => c.put(e.request, kopija));
+        if (odg && odg.ok) {
+          const kopija = odg.clone();
+          caches.open(PREDPOMNILNIK).then((c) => c.put(e.request, kopija));
+        }
         return odg;
       })
       .catch(() => caches.match(e.request).then((z) => z || caches.match('./index.html')))
