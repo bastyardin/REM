@@ -330,7 +330,7 @@ tbody tr:hover{background:var(--siva-50)}
   .stranica{display:none}
   .tabbar{display:block}
   .vsebina{padding:16px 16px calc(24px + var(--tabbar-v))}
-  .vrh{padding:12px 16px}
+  .vrh{padding:12px 16px;flex-wrap:wrap;row-gap:8px}
   .vrh h1{font-size:19px}
   .vrh .podnaslov{display:none}
   .vrh-desno .gumb{padding:8px 12px;font-size:12.5px}
@@ -1969,10 +1969,10 @@ STRANI_FN.placila = function(el, vrhDesno){
   // zavihki: pregled / zapadle / vsa plačila / varščine
   const zav = stanjeStrani.zavihek || 'pregled';
   html+='<div class="zavihki">';
-  html+='<button class="zavihek'+(zav==='pregled'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'pregled\';izrisiStran()">📋 Mesečni pregled</button>';
-  html+='<button class="zavihek'+(zav==='zapadle'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'zapadle\';izrisiStran()">🔔 Zapadle'+(zapadli.length>0?' ('+zapadli.length+')':'')+'</button>';
-  html+='<button class="zavihek'+(zav==='vsa'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'vsa\';izrisiStran()">📜 Vsa plačila</button>';
-  html+='<button class="zavihek'+(zav==='varscine'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'varscine\';izrisiStran()">🔐 Varščine</button>';
+  html+='<button class="zavihek'+(zav==='pregled'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'pregled\';izrisiStran()">Mesečni pregled</button>';
+  html+='<button class="zavihek'+(zav==='zapadle'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'zapadle\';izrisiStran()">Zapadle'+(zapadli.length>0?' ('+zapadli.length+')':'')+'</button>';
+  html+='<button class="zavihek'+(zav==='vsa'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'vsa\';izrisiStran()">Vsa plačila</button>';
+  html+='<button class="zavihek'+(zav==='varscine'?' aktiven':'')+'" onclick="stanjeStrani.zavihek=\'varscine\';izrisiStran()">Varščine</button>';
   html+='</div>';
 
   if(zav==='pregled') html+=zavihekMesecniPregled();
@@ -3804,6 +3804,30 @@ STRANI_FN.navodila = function(el, vrhDesno){
     '<div><div style="font-size:19px;font-weight:800">Upravljalec nepremičnin</div>'+
     '<div class="txt-mute" style="font-size:13px">Brezplačen program za upravljanje nepremičnin v najemu, prilagojen slovenski zakonodaji.</div></div></div>'+
     '<p class="txt-mute" style="font-size:13.5px;line-height:1.7;margin-top:10px">Vsi podatki ostanejo <b>samo na vašem računalniku</b> — nič se ne pošilja na splet. Spodaj je pregled vseh funkcij.</p>'+
+    '</div></div>';
+
+  // namestitev na telefon / računalnik
+  html+='<div class="naslov-razdelka">📱 Namestitev na telefon ali računalnik</div>';
+  html+='<div class="kartica mb16"><div class="kartica-telo">'+
+    '<p style="font-size:13.5px;line-height:1.7;margin-bottom:14px">Program lahko dodate na začetni zaslon in se bo obnašal <b>kot prava aplikacija</b>: svoja ikona, celozaslonski prikaz brez brskalniške vrstice, delovanje tudi brez interneta, ob odprtju pa se sam posodobi na zadnjo različico.</p>'+
+    '<div style="font-weight:700;font-size:13.5px;margin-bottom:8px">🍎 iPhone in iPad (Safari)</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'+
+    korakNavodilo('1','Odprite to stran v Safariju','Uporabite Safari — v drugih brskalnikih na iPhonu namestitev ni vedno mogoča.')+
+    korakNavodilo('2','Tapnite gumb Deli','Kvadratek s puščico navzgor na sredini spodnje vrstice.')+
+    korakNavodilo('3','Izberite »Dodaj na začetni zaslon«','Če možnosti ne vidite, podrsajte po seznamu navzdol. Potrdite z »Dodaj«.')+
+    korakNavodilo('4','Odprite aplikacijo z nove ikone','Od zdaj jo vedno odpirajte z začetnega zaslona — odpre se čez cel zaslon, brez Safarija.')+
+    '</div>'+
+    '<div style="font-weight:700;font-size:13.5px;margin-bottom:8px">🤖 Android (Chrome)</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">'+
+    korakNavodilo('1','Odprite stran v Chromu in tapnite meni ⋮','Tri pikice zgoraj desno.')+
+    korakNavodilo('2','Izberite »Dodaj na začetni zaslon« ali »Namesti aplikacijo«','Potrdite — ikona se pojavi med aplikacijami.')+
+    '</div>'+
+    '<div style="font-weight:700;font-size:13.5px;margin-bottom:8px">💻 Računalnik (Chrome ali Edge)</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'+
+    korakNavodilo('1','Kliknite ikono za namestitev v naslovni vrstici','Majhen simbol zaslona s puščico na desni strani naslovne vrstice (ali gumb »Namesti aplikacijo« v meniju levo spodaj, če se prikaže).')+
+    korakNavodilo('2','Potrdite namestitev','Program dobi svoje okno in ikono v opravilni vrstici / Docku.')+
+    '</div>'+
+    '<div class="opozorilo opo-modra" style="margin-bottom:0"><span class="ik">💡</span><div>Pomembno: podatki so shranjeni v brskalniku naprave, zato telefon in računalnik <b>ne delita podatkov samodejno</b>. Prenesete jih z varnostno kopijo (izvoz na eni napravi, uvoz na drugi).</div></div>'+
     '</div></div>';
 
   // funkcije

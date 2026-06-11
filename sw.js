@@ -3,7 +3,7 @@
    Ob spremembi aplikacije povečajte številko VERZIJA spodaj,
    da brskalniki prenesejo svežo kopijo.
    ============================================================ */
-const VERZIJA = 'v6';
+const VERZIJA = 'v7';
 const PREDPOMNILNIK = 'upravljalec-nepremicnin-' + VERZIJA;
 
 /* datoteke, ki sestavljajo aplikacijo (app shell) */
