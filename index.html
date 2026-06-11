@@ -143,7 +143,8 @@ svg{display:block}
 /* ===== LIST "VEČ" (spodnji meni na telefonu) ===== */
 .sheet-ozadje{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:95;display:none;align-items:flex-end;justify-content:center}
 .sheet-ozadje.odprt{display:flex}
-.sheet{background:var(--siva-100);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom,0px));max-height:82vh;overflow-y:auto;animation:sheetGor .22s ease}
+.sheet{background:var(--siva-100);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom,0px));max-height:82vh;overflow-y:auto;animation:sheetGor .22s ease;overscroll-behavior:contain}
+body.zaklenjen{position:fixed;left:0;right:0;width:100%;overflow:hidden}
 @keyframes sheetGor{from{transform:translateY(48px);opacity:0}to{transform:none;opacity:1}}
 .sheet .rocaj{width:38px;height:4.5px;border-radius:3px;background:var(--siva-300);margin:4px auto 6px}
 .sheet .meni-naslov{padding:14px 6px 6px}
@@ -700,14 +701,31 @@ function obvestilo(tekst, vrsta){
 }
 
 /* ---------- 6. MODALNO OKNO ---------- */
+/* zaklep drsenja ozadja, ko je odprt modal ali list "Več" (iOS sicer drsa stran pod njim) */
+let zapahScrollY = 0;
+function osveziZapahOzadja(){
+  const sheetEl = document.getElementById('sheetOzadje');
+  const odprto = document.getElementById('modalOzadje').classList.contains('odprt') || (sheetEl && sheetEl.classList.contains('odprt'));
+  const telo = document.body;
+  if(odprto && !telo.classList.contains('zaklenjen')){
+    zapahScrollY = window.scrollY || 0;
+    telo.classList.add('zaklenjen');
+    telo.style.top = (-zapahScrollY)+'px';
+  }else if(!odprto && telo.classList.contains('zaklenjen')){
+    telo.classList.remove('zaklenjen');
+    telo.style.top = '';
+    window.scrollTo(0, zapahScrollY);
+  }
+}
 function odpriModal(naslov, telo, noga, sirok){
   document.getElementById('modalNaslov').innerHTML = naslov;
   document.getElementById('modalTelo').innerHTML = telo;
   document.getElementById('modalNoga').innerHTML = noga || '';
   document.getElementById('modalOkno').className = 'modal' + (sirok?' sirok':'');
   document.getElementById('modalOzadje').classList.add('odprt');
+  osveziZapahOzadja();
 }
-function zapriModal(){ document.getElementById('modalOzadje').classList.remove('odprt'); }
+function zapriModal(){ document.getElementById('modalOzadje').classList.remove('odprt'); osveziZapahOzadja(); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ zapriModal(); if(typeof zapriVec==='function') zapriVec(); } });
 document.getElementById('modalOzadje').addEventListener('click',e=>{ if(e.target.id==='modalOzadje') zapriModal(); });
 document.getElementById('sheetOzadje').addEventListener('click',e=>{ if(e.target.id==='sheetOzadje') zapriVec(); });
@@ -810,9 +828,50 @@ function odpriVec(){
   h += '<button class="sheet-gumb" onclick="zapriVec();izvoziVarnostno()">'+svgIkona('kopija')+'<span>Varnostna kopija</span></button>';
   h += '<button class="sheet-gumb" onclick="zapriVec();document.getElementById(\'uvozDat\').click()">'+svgIkona('uvoz')+'<span>Uvozi podatke</span></button>';
   sheet.innerHTML = h;
+  sheet.scrollTop = 0;
   document.getElementById('sheetOzadje').classList.add('odprt');
+  osveziZapahOzadja();
 }
-function zapriVec(){ document.getElementById('sheetOzadje').classList.remove('odprt'); }
+function zapriVec(){ document.getElementById('sheetOzadje').classList.remove('odprt'); osveziZapahOzadja(); }
+
+/* poteg navzdol zapre list "Več" (kot pri sistemskih iOS listih) */
+(function(){
+  const sheet = document.getElementById('sheetVec');
+  const ozadje = document.getElementById('sheetOzadje');
+  if(!sheet || !ozadje) return;
+  let zacY = 0, premik = 0, vlecem = false;
+  sheet.addEventListener('touchstart', (e)=>{
+    if(!ozadje.classList.contains('odprt')) return;
+    zacY = e.touches[0].clientY; premik = 0; vlecem = false;
+  }, {passive:true});
+  sheet.addEventListener('touchmove', (e)=>{
+    if(!ozadje.classList.contains('odprt')) return;
+    const y = e.touches[0].clientY;
+    if(!vlecem){
+      /* poteg navzdol z vrha lista = vlečenje; sicer navadno drsenje po vsebini */
+      if(y - zacY > 0 && sheet.scrollTop <= 0){ vlecem = true; zacY = y; }
+      else return;
+    }
+    premik = Math.max(0, y - zacY);
+    sheet.style.transition = 'none';
+    sheet.style.transform = 'translateY(' + premik + 'px)';
+    e.preventDefault();   /* da se ne drsa ozadje */
+  }, {passive:false});
+  sheet.addEventListener('touchend', ()=>{
+    if(!vlecem) return;
+    vlecem = false;
+    if(premik > 90){
+      sheet.style.transition = 'transform .18s ease';
+      sheet.style.transform = 'translateY(105%)';
+      setTimeout(()=>{ zapriVec(); sheet.style.transition=''; sheet.style.transform=''; }, 170);
+    }else{
+      sheet.style.transition = 'transform .2s ease';
+      sheet.style.transform = 'translateY(0)';
+      setTimeout(()=>{ sheet.style.transition=''; sheet.style.transform=''; }, 210);
+    }
+    premik = 0;
+  });
+})();
 
 function pojdi(stranId){
   trenutnaStran = stranId;
