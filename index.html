@@ -368,6 +368,15 @@ tbody tr:hover{background:var(--siva-50)}
   body{background:#fff;zoom:1}
 }
 
+/* tiskanje dokumentov znotraj aplikacije (pogodba, račun, zapisnik, davčni list) */
+#tiskOvoj{display:none}
+@media print{
+  body.tiskanje .app,body.tiskanje .tabbar,body.tiskanje .modal-ozadje,body.tiskanje .sheet-ozadje,body.tiskanje .toast-ovoj,body.tiskanje #gdprPasica{display:none!important}
+  body.tiskanje #tiskOvoj{display:block}
+  body.tiskanje #tiskOvoj h2{text-align:center}
+  body.tiskanje #tiskOvoj table{width:100%}
+}
+
 /* GDPR pasica */
 #gdprPasica{position:fixed;left:0;right:0;bottom:0;z-index:300;background:rgba(24,24,27,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#e2e8f0;padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,.25);display:none}
 #gdprPasica.viden{display:block;animation:gdprGor .3s ease}
@@ -756,6 +765,24 @@ function potrdi(naslov, tekst, naDa, besedaDa){
     '<button class="gumb gumb-sekundarni" onclick="zapriModal()">Prekliči</button>'+
     '<button class="gumb gumb-nevarno" id="potrdiGumb">'+(besedaDa||'Izbriši')+'</button>');
   document.getElementById('potrdiGumb').onclick = ()=>{ zapriModal(); naDa(); };
+}
+
+/* ---------- TISKANJE DOKUMENTOV ----------
+   Ne uporabljamo window.open: v aplikaciji na začetnem zaslonu iPhona
+   bi se nov zavihek odprl ČEZ aplikacijo brez gumba nazaj (uporabnik obtiči).
+   Namesto tega dokument vstavimo v skrit ovoj in pokličemo window.print(),
+   ki na iOS odpre sistemski list za tiskanje / shranjevanje v PDF. */
+function natisniHTML(vsebinaHTML, stil){
+  let ov = document.getElementById('tiskOvoj');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'tiskOvoj'; document.body.appendChild(ov); }
+  ov.innerHTML = '<div style="'+(stil||'')+'">'+vsebinaHTML+'</div>';
+  document.body.classList.add('tiskanje');
+  let pociscen = false;
+  const pocisti = ()=>{ if(pociscen) return; pociscen = true; document.body.classList.remove('tiskanje'); ov.innerHTML = ''; };
+  window.addEventListener('afterprint', pocisti, {once:true});
+  window.addEventListener('focus', pocisti, {once:true});
+  setTimeout(pocisti, 30000);
+  setTimeout(()=>{ try{ window.print(); }catch(e){ pocisti(); } }, 60);
 }
 
 /* ---------- 7. MENI / NAVIGACIJA ---------- */
@@ -2731,10 +2758,7 @@ function davcniListHTML(leto){
   return h;
 }
 function natisniDavcniList(leto){
-  const h = davcniListHTML(leto);
-  const w=window.open('','_blank');
-  w.document.write('<html><head><title>Davčni list '+leto+'</title><meta charset="utf-8"></head><body style="margin:30px">'+h+'</body></html>');
-  w.document.close(); setTimeout(()=>w.print(),400);
+  natisniHTML(davcniListHTML(leto), 'padding:10px');
 }
 function shraniDavcniListPDF(leto){
   shraniHTMLvPDF(davcniListHTML(leto), 'davcni-list-'+leto+'.pdf');
@@ -3657,9 +3681,7 @@ function kopirajPogodbo(){
 }
 function natisniPogodbo(){
   const vsebina=document.getElementById('pogodbaVsebina').innerHTML;
-  const w=window.open('','_blank');
-  w.document.write('<html><head><title>Najemna pogodba</title><meta charset="utf-8"><style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.7}h2{text-align:center}table{width:100%}</style></head><body>'+vsebina+'</body></html>');
-  w.document.close(); setTimeout(()=>w.print(),300);
+  natisniHTML(vsebina, 'font-family:Georgia,serif;max-width:720px;margin:0 auto;padding:10px;color:#1e293b;line-height:1.7');
 }
 function shraniPogodboPDF(){
   let v=document.getElementById('pogodbaVsebina').innerHTML;
@@ -3761,9 +3783,7 @@ function predogledZapisnika(){
     '<div id="zapisnikVsebina" style="background:#fff;border:1px solid var(--siva-200);border-radius:10px;padding:24px;max-height:320px;overflow-y:auto;font-family:Georgia,serif">'+zapisnikHTML()+'</div>';
 }
 function natisniZapisnik(){
-  const w=window.open('','_blank');
-  w.document.write('<html><head><title>Primopredajni zapisnik</title><meta charset="utf-8"><style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b}</style></head><body>'+zapisnikHTML()+'</body></html>');
-  w.document.close(); setTimeout(()=>w.print(),300);
+  natisniHTML(zapisnikHTML(), 'font-family:Georgia,serif;max-width:720px;margin:0 auto;padding:10px;color:#1e293b');
 }
 function shraniZapisnikPDF(){
   shraniHTMLvPDF(zapisnikHTML(), 'primopredajni-zapisnik-'+document.getElementById('zap_datum').value+'.pdf', 'serif');
@@ -3915,9 +3935,7 @@ function upnBlokRacuna(t, znesek, obdobje, mes){
 }
 function natisniRacun(){
   const v=document.getElementById('racunVsebina').innerHTML;
-  const w=window.open('','_blank');
-  w.document.write('<html><head><title>Račun</title><meta charset="utf-8"><style>body{font-family:-apple-system,Arial,sans-serif;max-width:680px;margin:40px auto;padding:0 20px}table{width:100%}</style></head><body>'+v+'</body></html>');
-  w.document.close(); setTimeout(()=>w.print(),300);
+  natisniHTML(v, 'font-family:-apple-system,Arial,sans-serif;max-width:680px;margin:0 auto;padding:10px');
 }
 function shraniRacunPDF(){
   const v=document.getElementById('racunVsebina').innerHTML;
