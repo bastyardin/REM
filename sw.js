@@ -3,7 +3,7 @@
    Ob spremembi aplikacije povečajte številko VERZIJA spodaj,
    da brskalniki prenesejo svežo kopijo.
    ============================================================ */
-const VERZIJA = 'v10';
+const VERZIJA = 'v11';
 const PREDPOMNILNIK = 'upravljalec-nepremicnin-' + VERZIJA;
 
 /* datoteke, ki sestavljajo aplikacijo (app shell) */
@@ -15,13 +15,22 @@ const DATOTEKE = [
   './ikona-512.png'
 ];
 
+/* zunanji knjižnici (PDF in QR koda) — predpomnita se že ob namestitvi,
+   da delujeta brez interneta tudi, če ju uporabnik prej še ni uporabil */
+const KNJIZNICE = [
+  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
+];
+
 /* ob namestitvi: shrani vse datoteke v predpomnilnik
    (cache:'reload' obide HTTP predpomnilnik — GitHub Pages sicer
-   do 10 minut vrača staro kopijo) */
+   do 10 minut vrača staro kopijo); knjižnici sta zaželeni, a ne smeta
+   preprečiti namestitve, če cdnjs ni dosegljiv */
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(PREDPOMNILNIK)
-      .then((c) => c.addAll(DATOTEKE.map((u) => new Request(u, { cache: 'reload' }))))
+      .then((c) => c.addAll(DATOTEKE.map((u) => new Request(u, { cache: 'reload' })))
+        .then(() => Promise.all(KNJIZNICE.map((u) => c.add(u).catch(() => null)))))
       .then(() => self.skipWaiting())
   );
 });
